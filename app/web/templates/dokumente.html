@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Dokumente{% endblock %}
+{% block content %}
+<h1>Dokumente</h1>
+<form method="get" action="/dokumente">
+  <label>Dateiname <input type="text" name="q" value="{{ q }}"></label>
+  <label>Typ
+    <select name="typ">
+      <option value="">alle</option>
+      {% for t in typen %}<option value="{{ t }}" {% if t == typ %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Kategorie
+    <select name="kategorie">
+      <option value="">alle</option>
+      {% for k in kategorien %}<option value="{{ k }}" {% if k == kategorie %}selected{% endif %}>{{ k }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit">Filtern</button>
+</form>
+<p>{{ gesamt }} Dokument{{ "" if gesamt == 1 else "e" }}</p>
+<table>
+  <thead>
+    <tr><th>Dateiname</th><th>Typ</th><th>Datum</th><th>Anhang von</th><th>Text</th><th>Entitäten</th><th>Embedding</th><th>Analyse</th><th>Kategorie</th></tr>
+  </thead>
+  <tbody>
+    {% for z in zeilen %}
+    <tr>
+      <td><a href="/dokumente/{{ z.dokument.id }}">{{ z.dokument.dateiname }}</a></td>
+      <td>{{ z.dokument.typ.value }}</td>
+      <td>{{ z.datum }}</td>
+      <td>{% if z.eltern %}<a href="/dokumente/{{ z.eltern.id }}">{{ z.eltern.dateiname }}</a>{% else %}–{% endif %}</td>
+      <td>{{ "✓" if z.text else "–" }}</td>
+      <td>{{ z.entitaeten }}</td>
+      <td>{{ "✓" if z.embedding else "–" }}</td>
+      <td>{{ "✓" if z.analyse else "–" }}</td>
+      <td>{{ z.kategorie or "–" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9">Keine Dokumente gefunden.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p>
+  {% if seite > 1 %}<a href="/dokumente?q={{ q | urlencode }}&typ={{ typ | urlencode }}&kategorie={{ kategorie | urlencode }}&seite={{ seite - 1 }}">« Zurück</a>{% endif %}
+  Seite {{ seite }}
+  {% if hat_weitere %}<a href="/dokumente?q={{ q | urlencode }}&typ={{ typ | urlencode }}&kategorie={{ kategorie | urlencode }}&seite={{ seite + 1 }}">Weiter »</a>{% endif %}
+</p>
+{% endblock %}

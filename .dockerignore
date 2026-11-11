@@ -1,0 +1,11 @@
+dist/
+material/
+data/
+tmp/
+spike/
+.venv/
+.git/
+.superpowers/
+.pytest_cache/
+.env
+**/__pycache__

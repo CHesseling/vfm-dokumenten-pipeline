@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}SQL{% endblock %}
+{% block content %}
+<h1>SQL</h1>
+<p>Nur lesen: Abfragen laufen in einer schreibgeschützten Transaktion (Timeout 10 s, höchstens {{ limit }} Zeilen).</p>
+<p>Die Tabelle analyse muss in Anführungszeichen stehen: "analyse" (reserviertes Wort).</p>
+<p>Beispiele:
+  {% for titel, beispiel in beispiele %}
+  <button type="button" class="beispiel" data-sql="{{ beispiel }}">{{ titel }}</button>
+  {% endfor %}
+</p>
+<form method="post" action="/sql">
+  <textarea id="sql" name="sql" rows="8" style="width:100%; font-family:monospace;">{{ sql }}</textarea>
+  <p><button type="submit">Ausführen</button></p>
+</form>
+{% if fehler %}<p style="color: var(--fehler);">{{ fehler }}</p>{% endif %}
+{% if ergebnis %}
+<p>{{ ergebnis.zeilen | length }} Zeile{{ "" if ergebnis.zeilen | length == 1 else "n" }} in {{ ergebnis.dauer_ms }} ms</p>
+{% if ergebnis.abgeschnitten %}<p><strong>Ergebnis abgeschnitten:</strong> angezeigt werden nur die ersten {{ limit }} Zeilen.</p>{% endif %}
+<table>
+  <thead><tr>{% for s in ergebnis.spalten %}<th>{{ s }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    {% for z in zeilen %}<tr>{% for w in z %}<td>{{ w }}</td>{% endfor %}</tr>{% endfor %}
+  </tbody>
+</table>
+{% endif %}
+<script>
+  document.querySelectorAll("button.beispiel").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.getElementById("sql").value = b.dataset.sql;
+    });
+  });
+</script>
+{% endblock %}

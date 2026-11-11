@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Status{% endblock %}
+{% block content %}
+<h1>Status</h1>
+<p>Aktives Provider-Profil: <strong>{{ provider }}</strong></p>
+
+<h2>Modelle</h2>
+<table>
+  <thead><tr><th>Rolle</th><th>Provider</th><th>Backend</th><th>Modell</th><th>URL</th><th>API-Key</th></tr></thead>
+  <tbody>
+    {% for r in rollen %}
+    <tr><td>{{ r.rolle }}</td><td>{{ r.provider }}</td><td>{{ r.backend }}</td><td>{{ r.modell }}</td><td>{{ r.url }}</td><td>{{ r.key }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<form method="post" action="/status/check"><button type="submit">Verbindung prüfen</button></form>
+
+{% if check %}
+<h3>Ergebnis der Verbindungsprüfung</h3>
+<table>
+  <thead><tr><th>Rolle</th><th>Backend</th><th>Modell</th><th>Status</th><th>Details</th></tr></thead>
+  <tbody>
+    {% for c in check %}
+    <tr>
+      <td>{{ c.rolle }}</td><td>{{ c.backend }}</td><td>{{ c.modell }}</td>
+      <td class="{{ '' if c.ok else 'fehler-text' }}">{{ "OK" if c.ok else "FEHLER" }}</td>
+      <td>{{ c.detail }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Zählerstände</h2>
+<table>
+  <thead><tr><th>Typ</th>{% for sp in spalten %}<th>{{ sp }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    {% for typ, zahlen in typen %}
+    <tr><td>{{ typ }}</td>{% for z in zahlen %}<td>{{ z }}</td>{% endfor %}</tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Verarbeitung für alle Dokumente</h2>
+<form method="post" action="/status/ner" style="display:inline"><button type="submit">NER für alle</button></form>
+<form method="post" action="/status/embed" style="display:inline"><button type="submit">Embeddings erzeugen</button></form>
+<form method="post" action="/status/analyse" style="display:inline"><button type="submit">Analyse für alle</button></form>
+<p class="hinweis-box">Läufe, die auf der Kommandozeile (CLI) gestartet wurden, erscheinen hier nicht – nur Läufe aus dieser Seite.
+Ein bereits laufender Lauf wird nicht doppelt gestartet; der Button führt dann zur Fortschrittsanzeige des laufenden Laufs.</p>
+{% endblock %}

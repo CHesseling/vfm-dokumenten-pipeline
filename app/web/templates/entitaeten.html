@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Entitäten{% endblock %}
+{% block content %}
+<h1>Entitäten</h1>
+<form method="get" action="/entitaeten">
+  <label>Label
+    <select name="label"><option value="">alle</option>
+      {% for l in labels %}<option value="{{ l }}" {{ 'selected' if l == label }}>{{ l }}</option>{% endfor %}
+    </select></label>
+  <label>Methode
+    <select name="methode"><option value="">alle</option>
+      {% for m in methoden %}<option value="{{ m }}" {{ 'selected' if m == methode }}>{{ m }}</option>{% endfor %}
+    </select></label>
+  <label>Suche <input type="text" name="q" value="{{ q }}"></label>
+  <button type="submit">Filtern</button>
+</form>
+{% for l, zeilen in gruppen %}
+<h2>{{ l }}</h2>
+<table>
+  <thead><tr><th>Text</th><th>Anzahl</th><th>Dokumente</th></tr></thead>
+  <tbody>
+    {% for z in zeilen %}
+    <tr><td>{{ z.text }}</td><td>{{ z.anzahl }}</td>
+      <td>{% for id, name in z.dokumente %}<a href="/dokumente/{{ id }}">{{ name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if zeilen | length >= limit %}<p class="hinweis-box">Nur die ersten {{ limit }} Zeilen je Label.</p>{% endif %}
+{% else %}
+<p class="hinweis-box">Keine Entitäten gefunden. Auf einer Dokument-Seite oder mit <code>vfm ner</code> starten.</p>
+{% endfor %}
+{% endblock %}

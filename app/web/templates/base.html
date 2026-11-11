@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Dokumenten-Pipeline{% endblock %}</title>
+  <link rel="icon" href="/static/ndr-logo.png">
+  <style>
+    :root {
+      --ndr-blau: #0c1754;
+      --ndr-blau-mittel: #2671c6;
+      --ndr-warmgrau: #f1eae3;
+      --text: #1a1a1a;
+      --border: #d9d2c7;
+      --fehler: #b00020;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "NDR Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      color: var(--text);
+      background: #ffffff;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.75rem 2rem;
+      border-bottom: 3px solid var(--ndr-blau);
+      flex-wrap: wrap;
+    }
+
+    header img.logo { height: 40px; width: auto; }
+
+    header .site-name {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--ndr-blau);
+      margin-right: auto;
+      white-space: nowrap;
+    }
+
+    nav { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
+
+    nav a {
+      color: var(--ndr-blau);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    nav a:hover { color: var(--ndr-blau-mittel); }
+
+    nav a.aktiv {
+      border-bottom: 2px solid var(--ndr-blau-mittel);
+      padding-bottom: 0.15rem;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem 3rem;
+    }
+
+    h1, h2, h3 { color: var(--ndr-blau); }
+
+    a { color: var(--ndr-blau-mittel); }
+
+    table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.7rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--ndr-blau);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    tbody tr:hover { background: var(--ndr-warmgrau); }
+
+    form label {
+      margin-right: 1rem;
+      display: inline-block;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"], input[type="date"], select {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.35rem 0.5rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--ndr-blau-mittel);
+      box-shadow: 0 0 0 2px rgba(38, 113, 198, 0.25);
+    }
+
+    button, input[type="submit"] {
+      background: var(--ndr-blau);
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 1.1rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover, input[type="submit"]:hover { background: var(--ndr-blau-mittel); }
+
+    .fehler-text { color: var(--fehler); }
+
+    .tab-leiste { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .tab-leiste button.inaktiv { background: var(--ndr-warmgrau); color: var(--ndr-blau); }
+    pre.text { white-space: pre-wrap; background: #fafafa; border: 1px solid var(--border); padding: 1rem; max-height: 32rem; overflow: auto; }
+    .hinweis-box { background: var(--ndr-warmgrau); border-radius: 6px; padding: 1rem 1.25rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="/static/ndr-logo.png" alt="NDR">
+    <span class="site-name">Dokumenten-Pipeline</span>
+    <nav>
+      <a href="/dokumente">Dokumente</a>
+      <a href="/upload">Upload</a>
+      <a href="/entitaeten">Entitäten</a>
+      <a href="/suche">Suche</a>
+      <a href="/sql">SQL</a>
+      <a href="/status">Status</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Suche{% endblock %}
+{% block content %}
+<h1>Suche</h1>
+<form method="get" action="/suche">
+  <input type="text" name="q" value="{{ q }}" size="50" placeholder="Suchbegriff oder Frage">
+  <div class="tab-leiste">
+    <label><input type="radio" name="modus" value="volltext" {{ "checked" if modus == "volltext" }}> Volltext</label>
+    <label><input type="radio" name="modus" value="semantisch" {{ "checked" if modus == "semantisch" }}> Semantisch</label>
+    <label><input type="checkbox" name="rerank" value="1" {{ "checked" if rerank }}> Rerank (nur semantisch)</label>
+  </div>
+  <button type="submit">Suchen</button>
+</form>
+
+{% if hinweis %}<div class="hinweis-box">{{ hinweis }}</div>{% endif %}
+
+{% if q and not hinweis %}
+  {% if treffer %}
+  <table>
+    <thead><tr>
+      <th>Rang</th>
+      {% if modus == "semantisch" %}<th>Vektor-Rang{% if mit_rerank %} → Rerank-Rang{% endif %}</th><th>Vektor-Score</th>{% if mit_rerank %}<th>Rerank-Score</th>{% endif %}{% endif %}
+      <th>Dokument</th><th>Ausschnitt</th>
+    </tr></thead>
+    <tbody>
+    {% for t in treffer %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        {% if modus == "semantisch" %}
+        <td>{{ t.vektor_rang }}{% if mit_rerank %} → {{ t.rerank_rang }}{% endif %}</td>
+        <td>{{ "%.3f" | format(t.vektor_score) }}</td>
+        {% if mit_rerank %}<td>{{ "%.3f" | format(t.rerank_score) }}</td>{% endif %}
+        {% endif %}
+        <td><a href="/dokumente/{{ t.dokument_id }}">{{ t.dateiname }}</a></td>
+        <td>{% if t.snippet %}{{ snippet_html(t.snippet) }}{% else %}{{ t.text[:300] }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p><button type="button" id="antwort-knopf">Antwort generieren</button></p>
+  <div id="antwort" class="hinweis-box" hidden></div>
+  {% else %}
+  <p>Keine Treffer.</p>
+  {% endif %}
+{% endif %}
+
+<script>
+  var knopf = document.getElementById("antwort-knopf");
+  if (knopf) {
+    knopf.addEventListener("click", function () {
+      var box = document.getElementById("antwort");
+      box.hidden = false;
+      box.textContent = "Antwort wird erzeugt …";
+      knopf.disabled = true;
+      fetch("/suche/antwort", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({frage: {{ q | tojson }}, modus: "semantisch"})
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d.fehler) { box.textContent = d.fehler; return; }
+        // text_html wurde serverseitig escaped; nur [n]-Links sind Markup
+        box.innerHTML = d.text_html + "<h3>Quellen</h3><ol>" + d.quellen.map(function (q) {
+          var a = document.createElement("a");
+          a.href = "/dokumente/" + q.dokument_id; a.textContent = q.dateiname;
+          return "<li>" + a.outerHTML + "</li>";
+        }).join("") + "</ol>";
+      }).catch(function () { box.textContent = "Anfrage fehlgeschlagen."; })
+        .finally(function () { knopf.disabled = false; });
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ dokument.dateiname }}{% endblock %}
+{% block content %}
+<p><a href="/dokumente">« Alle Dokumente</a></p>
+<h1>{{ dokument.dateiname }}</h1>
+<table>
+  <tr><th>Typ</th><td>{{ dokument.typ.value }}</td></tr>
+  <tr><th>MIME</th><td>{{ dokument.mime }}</td></tr>
+  <tr><th>Größe</th><td>{{ dokument.groesse }} Bytes</td></tr>
+  <tr><th>SHA-256</th><td><code>{{ dokument.sha256 }}</code></td></tr>
+  <tr><th>Angelegt</th><td>{{ dokument.erstellt_am.strftime("%d.%m.%Y %H:%M") }}</td></tr>
+  {% if eltern %}<tr><th>Anhang von</th><td><a href="/dokumente/{{ eltern.id }}">{{ eltern.dateiname }}</a></td></tr>{% endif %}
+  {% for k, v in dokument.metadaten.items() %}
+  <tr><th>{{ k }}</th><td>{{ v }}</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Original</h2>
+{% set url = "/dokumente/%d/datei" | format(dokument.id) %}
+{% if dokument.typ.value == "pdf" %}
+<iframe src="{{ url }}" style="width:100%;height:40rem;border:1px solid var(--border)" title="PDF-Vorschau"></iframe>
+{% elif dokument.typ.value == "bild" %}
+<img src="{{ url }}" alt="{{ dokument.dateiname }}" style="max-width:100%;border:1px solid var(--border)">
+{% elif dokument.typ.value == "audio" %}
+<audio controls src="{{ url }}"></audio>
+{% elif dokument.typ.value == "eml" %}
+<h3>Anhänge</h3>
+{% if kinder %}
+<ul>{% for k in kinder %}<li><a href="/dokumente/{{ k.id }}">{{ k.dateiname }}</a> ({{ k.typ.value }})</li>{% endfor %}</ul>
+{% else %}<p>Keine Anhänge.</p>{% endif %}
+{% endif %}
+<p><a href="{{ url }}">Original öffnen</a></p>
+
+<h2>Text</h2>
+{% if extraktionen %}
+<div class="tab-leiste">
+  {% for e in extraktionen %}
+  <button type="button" class="tab-knopf {{ '' if e.ist_aktiv else 'inaktiv' }}" data-tab="tab-{{ e.id }}">{{ e.methode.value }}{% if e.ist_aktiv %} (aktiv){% endif %}</button>
+  {% endfor %}
+</div>
+{% for e in extraktionen %}
+<section class="tab-inhalt" id="tab-{{ e.id }}" {% if not e.ist_aktiv %}hidden{% endif %}>
+  <p>Modell: {{ e.modell or "–" }} · Dauer: {{ e.dauer_ms }} ms · {{ e.text | length }} Zeichen</p>
+  {% if e.ist_aktiv %}
+  <p><strong>Aktive Extraktion</strong></p>
+  {% else %}
+  <form method="post" action="/dokumente/{{ dokument.id }}/aktiv/{{ e.id }}"><button type="submit">als aktiv setzen</button></form>
+  {% endif %}
+  <pre class="text">{{ e.text }}</pre>
+</section>
+{% endfor %}
+<script>
+(function () {
+  var knoepfe = document.querySelectorAll(".tab-knopf");
+  knoepfe.forEach(function (k) {
+    k.addEventListener("click", function () {
+      knoepfe.forEach(function (x) { x.classList.add("inaktiv"); });
+      k.classList.remove("inaktiv");
+      document.querySelectorAll(".tab-inhalt").forEach(function (t) { t.hidden = t.id !== k.dataset.tab; });
+    });
+  });
+  var aktiv = document.querySelector(".tab-inhalt:not([hidden])");
+  if (!aktiv && knoepfe.length) knoepfe[0].click();
+})();
+</script>
+{% else %}
+<p>Noch keine Textextraktion.</p>
+{% endif %}
+
+<h2>Entitäten</h2>
+{% if ner_fehler %}<p class="fehler-text">Die Entitätserkennung ist fehlgeschlagen – Details in der Läufe-Tabelle unten.</p>{% endif %}
+<style>
+  mark { padding: 0 0.1rem; border-radius: 3px; color: var(--text); }
+  mark.ent-person { background: #cfe3fa; }
+  mark.ent-organisation { background: #d9d2f0; }
+  mark.ent-ort { background: #cdeccd; }
+  mark.ent-datum { background: #fbe3b5; }
+  mark.ent-geldbetrag { background: #f6d0d0; }
+  mark.ent-iban { background: #ffd9a8; }
+  mark.ent-telefon { background: #c9eceb; }
+  mark.ent-email { background: #f1eae3; }
+</style>
+{% if extraktionen %}
+<form method="post" action="/dokumente/{{ dokument.id }}/ner">
+  <label><input type="checkbox" name="methode" value="gliner" checked> GliNER</label>
+  <label><input type="checkbox" name="methode" value="muster" checked> Muster</label>
+  <label><input type="checkbox" name="methode" value="llm"> LLM (langsamer)</label>
+  <button type="submit">NER starten</button>
+</form>
+{% endif %}
+{% if ner.bloecke %}
+<div class="tab-leiste">
+  {% for b in ner.bloecke %}
+  <button type="button" class="ner-knopf {{ '' if loop.first else 'inaktiv' }}" data-ner="ner-{{ b.methode }}">{{ b.methode }} ({{ b.anzahl }})</button>
+  {% endfor %}
+</div>
+{% for b in ner.bloecke %}
+<pre class="text ner-inhalt" id="ner-{{ b.methode }}" {% if not loop.first %}hidden{% endif %}>{% for abschnitt, label in b.segmente %}{% if label %}<mark class="ent-{{ label }}" title="{{ label }} ({{ b.methode }})">{{ abschnitt }}</mark>{% else %}{{ abschnitt }}{% endif %}{% endfor %}</pre>
+{% endfor %}
+<script>
+(function () {
+  var knoepfe = document.querySelectorAll(".ner-knopf");
+  knoepfe.forEach(function (k) {
+    k.addEventListener("click", function () {
+      knoepfe.forEach(function (x) { x.classList.add("inaktiv"); });
+      k.classList.remove("inaktiv");
+      document.querySelectorAll(".ner-inhalt").forEach(function (t) { t.hidden = t.id !== k.dataset.ner; });
+    });
+  });
+})();
+</script>
+<h3>Vergleich der Methoden</h3>
+<table>
+  <thead><tr><th>Label</th><th>Text</th>{% for b in ner.bloecke %}<th>{{ b.methode }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    {% for z in ner.vergleich %}
+    <tr><td>{{ z.label }}</td><td>{{ z.text_normalisiert }}</td>
+      {% for b in ner.bloecke %}<td>{{ "✓" if b.methode in z.methoden else "" }}</td>{% endfor %}</tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="hinweis-box">Noch keine Entitäten erkannt.</p>
+{% endif %}
+<h2>Analysen</h2>
+{% if analyse_fehler %}<p class="fehler-text">Die Analyse ist fehlgeschlagen – Details in der Läufe-Tabelle unten.</p>{% endif %}
+<form method="post" action="/dokumente/{{ dokument.id }}/analyse"><button type="submit">Analysieren</button></form>
+{% if analysen %}
+{% if analysen.zusammenfassung %}
+<h3>Zusammenfassung</h3>
+<p>{{ analysen.zusammenfassung.text }}</p>
+{% endif %}
+{% if analysen.klassifikation %}
+<h3>Klassifikation</h3>
+<table>
+  <tr><th>Kategorie</th><td>{{ analysen.klassifikation.kategorie }}</td></tr>
+  <tr><th>Sicherheit</th><td>{{ (analysen.klassifikation.sicherheit * 100) | round | int }} %</td></tr>
+  <tr><th>Begründung</th><td>{{ analysen.klassifikation.begruendung }}</td></tr>
+</table>
+{% endif %}
+{% if analysen.bildbeschreibung %}
+<h3>Bildbeschreibung</h3>
+<p>{{ analysen.bildbeschreibung.text }}</p>
+{% endif %}
+{% else %}
+<p class="hinweis-box">Noch keine Analysen.</p>
+{% endif %}
+
+<h2>Läufe</h2>
+<table>
+  <thead><tr><th>Schritt</th><th>Status</th><th>Modell</th><th>Dauer (ms)</th><th>Fehler</th></tr></thead>
+  <tbody>
+    {% for l in laeufe %}
+    <tr><td>{{ l.schritt }}</td><td>{{ l.status.value }}</td><td>{{ l.modell or "–" }}</td><td>{{ l.dauer_ms }}</td><td class="fehler-text">{{ l.fehler or "" }}</td></tr>
+    {% else %}
+    <tr><td colspan="5">Keine Läufe protokolliert.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,55 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: vfm
+      POSTGRES_PASSWORD: vfm
+      POSTGRES_DB: vfm
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Nur bei Bedarf von aussen erreichbar machen:
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vfm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      args:
+        # Muss zum user: unten passen (Besitzer von /data im Image)
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    image: vfm-pipeline:latest
+    # Container-User ueber APP_UID/APP_GID in der .env anpassbar.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    env_file: .env
+    extra_hosts:
+      # Zugriff auf Ollama, das direkt auf dem Host laeuft
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8999:8000"
+    volumes:
+      - daten:/data
+      - ./material:/material
+
+  # Optional: Ollama im Container statt auf dem Host
+  # (docker compose --profile ollama up -d)
+  ollama:
+    image: ollama/ollama
+    profiles: ["ollama"]
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  postgres_data:
+  daten:
+  ollama:

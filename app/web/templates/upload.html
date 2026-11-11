@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Upload{% endblock %}
+{% block content %}
+<style>
+  #dropzone { border: 2px dashed var(--ndr-blau-mittel); border-radius: 6px; padding: 2rem; text-align: center; margin-bottom: 1rem; cursor: pointer; color: var(--ndr-blau); }
+  #dropzone.ueber-datei { background: var(--ndr-warmgrau); }
+  .ordner-box { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+</style>
+<h1>Dateien hochladen</h1>
+{% if fehler %}<p class="fehler-text">{{ fehler }}</p>{% endif %}
+<p>PDFs, E-Mails (.eml), Bilder, Audio und Textdateien. Mehrere Dateien sind möglich.</p>
+<form method="post" action="/upload" enctype="multipart/form-data">
+  <div id="dropzone">
+    <p id="dropzone-text">Dateien hierher ziehen oder klicken zum Auswählen</p>
+    <input type="file" name="datei" id="datei-input" multiple required style="display: none;">
+  </div>
+  <label>PDF-Methode
+    <select name="methode">
+      <option value="schnell">schnell</option>
+      <option value="docling">docling</option>
+      <option value="vision">vision</option>
+      <option value="alle">alle</option>
+    </select>
+  </label>
+  <button type="submit">Hochladen und verarbeiten</button>
+</form>
+
+<section class="ordner-box">
+  <h2>Ordner-Import</h2>
+  <p>Importiert alle Dateien aus <code>{{ material_pfad }}</code>. Bereits bekannte Dateien werden übersprungen.</p>
+  {% if ordner_status and not ordner_status.fertig %}
+  <p class="hinweis-box">Es läuft gerade ein Import. <a href="/laeufe/ordner">Fortschritt ansehen</a></p>
+  {% else %}
+  <form method="post" action="/upload/ordner">
+    <label>PDF-Methode
+      <select name="methode">
+        <option value="schnell">schnell</option>
+        <option value="docling">docling</option>
+        <option value="vision">vision</option>
+        <option value="alle">alle</option>
+      </select>
+    </label>
+    <button type="submit">Ordner importieren</button>
+  </form>
+  {% if ordner_status %}<p><a href="/laeufe/ordner">Ergebnis des letzten Laufs ansehen</a></p>{% endif %}
+  {% endif %}
+</section>
+
+<script>
+(function () {
+  var dropzone = document.getElementById("dropzone");
+  var input = document.getElementById("datei-input");
+  var text = document.getElementById("dropzone-text");
+  function beschriften() {
+    if (input.files.length > 0) {
+      text.textContent = Array.prototype.map.call(input.files, function (f) { return f.name; }).join(", ");
+    }
+  }
+  dropzone.addEventListener("click", function () { input.click(); });
+  input.addEventListener("change", beschriften);
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) { e.preventDefault(); dropzone.classList.add("ueber-datei"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) { e.preventDefault(); dropzone.classList.remove("ueber-datei"); });
+  });
+  dropzone.addEventListener("drop", function (e) {
+    if (e.dataTransfer.files.length > 0) { input.files = e.dataTransfer.files; beschriften(); }
+  });
+})();
+</script>
+{% endblock %}

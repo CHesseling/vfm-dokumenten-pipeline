@@ -1,0 +1,14 @@
+# Kategorien für die automatische Klassifikation (vfm analyse --art klassifikation).
+# Eigene Kategorien einfach ergänzen: name + beschreibung (hilft dem Modell bei der Zuordnung).
+- name: Vertrag
+  beschreibung: Verträge, Vereinbarungen, Vertragsentwürfe, Kündigungen
+- name: Rechnung
+  beschreibung: Rechnungen, Quittungen, Mahnungen, Kontoauszüge, Zahlungsbelege
+- name: Korrespondenz
+  beschreibung: Briefe, E-Mails, Anfragen und Antworten zwischen Personen oder Organisationen
+- name: Protokoll
+  beschreibung: Sitzungs- und Gesprächsprotokolle, Aktenvermerke, Transkripte
+- name: Privat
+  beschreibung: Private Unterlagen, Fotos und Notizen ohne geschäftlichen oder amtlichen Bezug
+- name: Sonstiges
+  beschreibung: Alles, was zu keiner der anderen Kategorien passt

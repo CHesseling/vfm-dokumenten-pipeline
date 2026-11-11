@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Verarbeitung{% endblock %}
+{% block content %}
+<style>
+  .fortschritt { background: var(--ndr-warmgrau); border-radius: 6px; height: 1.4rem; overflow: hidden; margin: 1rem 0 0.5rem; }
+  .fortschritt-balken { background: var(--ndr-blau-mittel); height: 100%; width: 0; transition: width 0.4s ease; }
+  .kennzahlen { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; margin: 0.5rem 0 1rem; }
+  .kennzahlen strong { font-variant-numeric: tabular-nums; }
+  #verlauf-liste { font-size: 0.85rem; color: #444; max-height: 24rem; overflow-y: auto; padding-left: 1.2rem; }
+  #verlauf-liste li { padding: 0.1rem 0; }
+</style>
+
+<h1>Verarbeitung</h1>
+
+<div class="fortschritt" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="fortschritt">
+  <div class="fortschritt-balken" id="fortschritt-balken"></div>
+</div>
+<div class="kennzahlen">
+  <span><strong id="zaehler">–</strong></span>
+  <span>Fehlgeschlagen: <strong id="fehlgeschlagen">0</strong></span>
+  <span>Laufzeit: <strong id="laufzeit">–</strong></span>
+  <span>Restzeit ca.: <strong id="restzeit">–</strong></span>
+</div>
+<p id="schritt-text">Wird geladen...</p>
+
+<form method="post" action="/laeufe/{{ schluessel | urlencode }}/abbrechen" id="abbrechen-form" style="display: none;">
+  <button type="submit">Abbrechen</button>
+  <span class="hinweis">(greift nach der aktuell laufenden Datei)</span>
+</form>
+
+<div id="fehler-box" class="fehler-text" style="display: none;"></div>
+<p id="fertig-hinweis" style="display: none;"></p>
+
+<h2>Letzte Schritte</h2>
+<ul id="verlauf-liste"></ul>
+
+<script>
+(function () {
+  function dauer(sekunden) {
+    if (!isFinite(sekunden) || sekunden < 0) return "–";
+    var h = Math.floor(sekunden / 3600), m = Math.floor((sekunden % 3600) / 60), s = Math.floor(sekunden % 60);
+    return h > 0 ? h + " h " + m + " min" : m > 0 ? m + " min " + s + " s" : s + " s";
+  }
+
+  function el(id) { return document.getElementById(id); }
+
+  function anzeigen(d) {
+    var prozent = d.gesamt ? Math.round(100 * d.erledigt / d.gesamt) : (d.fertig && d.gestartet ? 100 : 0);
+    el("fortschritt-balken").style.width = prozent + "%";
+    el("fortschritt").setAttribute("aria-valuenow", prozent);
+    el("zaehler").textContent = d.gesamt ? d.erledigt + " von " + d.gesamt + " Dateien (" + prozent + " %)" : "–";
+    el("fehlgeschlagen").textContent = d.fehlgeschlagen;
+    el("schritt-text").textContent = d.abbruch_angefordert && !d.fertig ? "Abbruch angefordert – warte auf Ende der aktuellen Datei..." : d.schritt;
+
+    if (d.begonnen_am) {
+      var ende = d.fertig ? new Date(d.aktualisiert_am) : new Date();
+      var laufzeit = (ende - new Date(d.begonnen_am)) / 1000;
+      el("laufzeit").textContent = dauer(laufzeit);
+      el("restzeit").textContent = !d.fertig && d.erledigt > 0 ? dauer(laufzeit / d.erledigt * (d.gesamt - d.erledigt)) : "–";
+    }
+
+    var liste = el("verlauf-liste");
+    liste.innerHTML = "";
+    d.verlauf.slice().reverse().forEach(function (eintrag) {
+      var li = document.createElement("li");
+      li.textContent = new Date(eintrag.zeitpunkt).toLocaleTimeString("de-DE") + "  " + eintrag.text;
+      liste.appendChild(li);
+    });
+
+    el("abbrechen-form").style.display = d.fertig || d.abbruch_angefordert ? "none" : "block";
+    if (d.fehler) {
+      el("fehler-box").textContent = "Fehler: " + d.fehler;
+      el("fehler-box").style.display = "block";
+    }
+    if (d.fertig && d.gestartet) {
+      el("fertig-hinweis").textContent = d.abbruch_angefordert ? "Lauf wurde abgebrochen." : "Lauf abgeschlossen.";
+      el("fertig-hinweis").style.display = "block";
+    }
+  }
+
+  function abfragen() {
+    fetch("/laeufe/{{ schluessel | urlencode }}/daten")
+      .then(function (antwort) { return antwort.json(); })
+      .then(function (d) {
+        anzeigen(d);
+        if (!d.fertig) setTimeout(abfragen, 2000);
+      })
+      .catch(function () { setTimeout(abfragen, 5000); });
+  }
+
+  abfragen();
+})();
+</script>
+<p><a href="/upload">Zurück zum Upload</a> · <a href="/dokumente">Zu den Dokumenten</a></p>
+{% endblock %}
