@@ -234,6 +234,7 @@ def ner(
     dokument: Optional[int] = typer.Option(None, "--dokument", "-d", help="Nur dieses Dokument (ID)."),
     labels: Optional[str] = typer.Option(None, "--labels", help="Kommagetrennte Labels, z. B. person,iban."),
     vergleich: bool = typer.Option(False, "--vergleich", help="Methoden nebeneinander (braucht --dokument)."),
+    alle_neu: bool = typer.Option(False, "--alle-neu", help="Auch vorhandene Ergebnisse neu berechnen."),
 ) -> None:
     """Erkennt Entitäten (Personen, Orte, IBAN, ...) mit Mustern, GliNER und/oder LLM."""
     from rich.progress import BarColumn, Progress, TextColumn
@@ -276,11 +277,12 @@ def ner(
                 fortschritt.update(aufgabe, completed=nr - 1, total=gesamt, description=escape(name))
 
             bilanz = ner_ausfuehren(
-                session, s, methoden, dokument_id=dokument, labels=label_liste, bei_dokument=bei_dokument
+                session, s, methoden, dokument_id=dokument, labels=label_liste, bei_dokument=bei_dokument,
+                nur_fehlende=not alle_neu,
             )
         konsole.print(
             f"Dokumente: {bilanz.dokumente}, Entitäten: {bilanz.entitaeten}, "
-            f"übersprungen: {bilanz.uebersprungen}, Fehler: {bilanz.fehler}"
+            f"bereits vorhanden: {bilanz.vorhanden}, übersprungen: {bilanz.uebersprungen}, Fehler: {bilanz.fehler}"
         )
         if vergleich:
             extraktion = session.exec(
@@ -424,7 +426,7 @@ def frage(
 ANALYSE_ARTEN = ("zusammenfassung", "klassifikation", "bildbeschreibung", "alle")
 
 
-def _analyse_stufe(session: Session, s: Settings, arten, dokument: Optional[int] = None):
+def _analyse_stufe(session: Session, s: Settings, arten, dokument: Optional[int] = None, nur_fehlende: bool = True):
     """Analyse mit Fortschrittsbalken; gibt die AnalyseBilanz zurueck."""
     from rich.progress import BarColumn, Progress, TextColumn
 
@@ -439,13 +441,15 @@ def _analyse_stufe(session: Session, s: Settings, arten, dokument: Optional[int]
         def bei_dokument(nr: int, gesamt: int, name: str) -> None:
             fortschritt.update(aufgabe, completed=nr - 1, total=gesamt, description=escape(name))
 
-        return ablauf.analyse_ausfuehren(session, s, arten, dokument_id=dokument, bei_dokument=bei_dokument)
+        return ablauf.analyse_ausfuehren(
+            session, s, arten, dokument_id=dokument, bei_dokument=bei_dokument, nur_fehlende=nur_fehlende
+        )
 
 
 def _analyse_zeile(bilanz) -> str:
     return (
         f"Dokumente: {bilanz.dokumente}, erzeugt: {bilanz.erzeugt}, "
-        f"übersprungen: {bilanz.uebersprungen}, Fehler: {bilanz.fehler}"
+        f"bereits vorhanden: {bilanz.vorhanden}, übersprungen: {bilanz.uebersprungen}, Fehler: {bilanz.fehler}"
     )
 
 
@@ -457,6 +461,7 @@ def analyse(
         "alle", "--art", "-a", help="zusammenfassung, klassifikation, bildbeschreibung oder alle."
     ),
     dokument: Optional[int] = typer.Option(None, "--dokument", "-d", help="Nur dieses Dokument (ID)."),
+    alle_neu: bool = typer.Option(False, "--alle-neu", help="Auch vorhandene Analysen neu berechnen."),
 ) -> None:
     """Analysiert Dokumente mit dem LLM: Zusammenfassung, Kategorie, Bildbeschreibung."""
     from app.enums import AnalyseArt
@@ -467,7 +472,7 @@ def analyse(
         raise typer.Exit(2)
     arten = set(AnalyseArt) if art == "alle" else {AnalyseArt(art)}
     with session_aus(s) as session:
-        bilanz = _analyse_stufe(session, s, arten, dokument)
+        bilanz = _analyse_stufe(session, s, arten, dokument, nur_fehlende=not alle_neu)
     konsole.print(_analyse_zeile(bilanz))
     if bilanz.fehler:
         konsole.print("[yellow]Mindestens eine Analyse ist fehlgeschlagen – Details in den Läufen (Dokument-Seite).[/yellow]")

@@ -1,9 +1,10 @@
 """Kategorien fuer die Klassifikation, aus einer YAML-Datei (Liste aus name + beschreibung)."""
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import yaml
+
+from app.config import repo_pfad
 
 
 @dataclass(frozen=True)
@@ -13,7 +14,7 @@ class Kategorie:
 
 
 def lade_kategorien(pfad: str) -> list[Kategorie]:
-    datei = Path(pfad)
+    datei = repo_pfad(pfad)
     if not datei.is_file():
         raise ValueError(f"Kategorien-Datei nicht gefunden: {pfad}")
     try:

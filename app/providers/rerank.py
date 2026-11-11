@@ -53,14 +53,17 @@ class LokalerReranker:
 
 
 class ApiReranker:
-    def __init__(self, base_url: str, model: str, api_key: str | None = None, timeout: float = 30.0):
+    def __init__(
+        self, base_url: str, model: str, api_key: str | None = None, timeout: float = 30.0,
+        connect_timeout: float | None = None,
+    ):
         self.model = model
         self.rolle = "rerank"
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
         self._client = httpx.Client(
             base_url=self._base_url,
-            timeout=timeout,
+            timeout=httpx.Timeout(timeout, connect=connect_timeout),
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
         )
 

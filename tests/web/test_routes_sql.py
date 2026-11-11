@@ -24,3 +24,9 @@ def test_sql_seite_hinweis_abgeschnitten(client, engine):
     client.app.dependency_overrides[get_sql_engine] = lambda: engine
     html = client.post("/sql", data={"sql": "SELECT * FROM generate_series(1,600)"}).text
     assert "500" in html and "abgeschnitten" in html.lower()
+
+
+def test_sql_seite_ohne_readonly_url(client, einstellungen):
+    einstellungen.sql_readonly_url = None
+    html = client.post("/sql", data={"sql": "SELECT 1"}).text
+    assert "SQL_READONLY_URL ist nicht gesetzt" in html

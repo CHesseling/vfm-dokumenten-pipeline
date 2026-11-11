@@ -24,7 +24,10 @@ def _env_isolieren(monkeypatch) -> None:
 
 @pytest.fixture
 def arbeitsordner(tmp_path, monkeypatch):
+    import app.config
+
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(app.config, "REPO_ROOT", tmp_path)
     _env_isolieren(monkeypatch)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@localhost/db")
     (tmp_path / "profile").mkdir()
@@ -107,6 +110,7 @@ def test_echte_profile_laden(monkeypatch, tmp_path):
     # darf nicht gelesen werden.
     shutil.copytree(repo / "profile", tmp_path / "profile")
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("app.config.REPO_ROOT", tmp_path)
     _env_isolieren(monkeypatch)
     monkeypatch.setenv("DATABASE_URL", "x")
     o = lade_settings("ollama")
@@ -122,3 +126,31 @@ def test_vision_key_cortecs_fallback(arbeitsordner):
     _env(arbeitsordner, "CORTECS_API_KEY=k\n")
     assert lade_settings("cortecs").vision_effektiv()[2] == "k"
     assert lade_settings("ollama").vision_effektiv()[2] is None
+
+
+def test_profile_unabhaengig_vom_arbeitsverzeichnis(tmp_path, monkeypatch):
+    """Aus einem fremden Ordner (ohne profile/ und .env) wird das Profil des Repos gefunden."""
+    import app.config as config
+
+    monkeypatch.chdir(tmp_path)
+    _env_isolieren(monkeypatch)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@localhost/db")
+    assert (config.REPO_ROOT / "profile" / "ollama.env").is_file()
+    s = lade_settings("ollama")
+    assert s.provider == "ollama"
+    assert s.chat_base_url and s.embed_model  # Pflichtfelder kommen aus profile/ollama.env
+
+
+def test_kategorien_pfad_relativ_zum_repo(tmp_path, monkeypatch):
+    from app.analyse.kategorien import lade_kategorien
+
+    monkeypatch.chdir(tmp_path)
+    assert lade_kategorien("config/kategorien.yaml")
+
+
+def test_env_aus_repo_wenn_keine_im_arbeitsverzeichnis(arbeitsordner, tmp_path, monkeypatch):
+    fremd = tmp_path / "fremd"
+    fremd.mkdir()
+    _env(arbeitsordner, "CHAT_MODEL=aus-repo\n")
+    monkeypatch.chdir(fremd)
+    assert lade_settings().chat_model == "aus-repo"

@@ -83,7 +83,7 @@ class Quelle(BaseModel):
 
 class FrageAntwort(BaseModel):
     antwort: str = Field(description="Antwort mit Quellenverweisen wie [1]; erfindet nichts außerhalb der Quellen")
-    quellen: list[Quelle] = Field(description="Verwendete Quellen in der Reihenfolge der Verweise")
+    quellen: list[Quelle] = Field(description="Dem Modell übergebene Quellen; [n] im Antworttext verweist auf `nummer`.")
 
 
 @router.get("/suche", response_model=list[SuchErgebnis], summary="Dokumente durchsuchen")

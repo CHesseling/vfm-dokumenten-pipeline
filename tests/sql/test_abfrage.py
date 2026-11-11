@@ -1,6 +1,7 @@
 import pytest
 
-from app.sql.abfrage import SqlFehler, SqlErgebnis, sql_ausfuehren
+from app.config import Settings
+from app.sql.abfrage import SqlFehler, SqlErgebnis, lese_engine, sql_ausfuehren
 from app.sql.beispiele import BEISPIELE
 
 
@@ -101,3 +102,22 @@ def test_prozentzeichen_like(engine):
 
 def test_prozentzeichen_modulo(engine):
     assert sql_ausfuehren(engine, "SELECT 5 % 3").zeilen == [(2,)]
+
+
+def _settings(**kw):
+    return Settings(
+        _env_file=None, database_url="postgresql+psycopg://x/x", chat_base_url="x", chat_model="x",
+        embed_base_url="x", embed_model="x", **kw,
+    )
+
+
+def test_lese_engine_ohne_readonly_url_kein_fallback():
+    with pytest.raises(SqlFehler) as fehler:
+        lese_engine(_settings())
+    assert str(fehler.value) == (
+        "SQL_READONLY_URL ist nicht gesetzt – die SQL-Seite braucht den Lesezugang (siehe .env.example)."
+    )
+
+
+def test_lese_engine_mit_readonly_url():
+    assert lese_engine(_settings(sql_readonly_url="postgresql+psycopg://l:l@localhost/db")) is not None

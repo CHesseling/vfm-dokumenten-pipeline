@@ -118,8 +118,8 @@ docs/superpowers/                Spec, Plan, Spike-Ergebnisse
   Stufe samt Nachhol-Befehlen. Jeder Schritt schreibt `Lauf`-Zeilen (Dauer, Fehler, Modell).
 - **NER mit drei Methoden**: `muster` (exakt), `gliner` (GliNER2, Modell-Labels englisch),
   `llm`; `--vergleich` zeigt sie nebeneinander. Alle Methoden schreiben `normalisiert` ueber
-  dieselbe Funktion `normalisiere(label, text)` (None fuer person/organisation/ort); sonst zerfiele dieselbe IBAN je Methode,
-  sonst zerfaellt dieselbe IBAN je Methode in Gruppen. Telefon-Treffer, die Datum/Geldbetrag
+  dieselbe Funktion `normalisiere(label, text)` (None fuer person/organisation/ort); sonst zerfiele dieselbe IBAN je Methode
+  in Gruppen. Telefon-Treffer, die Datum/Geldbetrag
   ueberlappen, werden verworfen (phonenumbers erkennt "03.03.2024" als Nummer). Bekannte Eigenheit: GliNER labelt IBANs gelegentlich als `geldbetrag`.
 - **SQL read-only**: `app/sql/abfrage.py` erlaubt genau **eine** Anweisung, laeuft in einer
   read-only Transaktion ueber `SQL_READONLY_URL` und die Postgres-Rolle `vfm_leser`
@@ -190,7 +190,7 @@ docker compose up -d                   # db + app (Migrationen laufen via entryp
 docker compose exec app vfm check
 ```
 
-GUI auf Port 8999 (`docker-compose.yml`). Migrationen im laufenden Container erzeugen
+GUI auf Port 8999 (`docker-compose.yml`), standardmaessig nur an 127.0.0.1 gebunden (`APP_BIND`, `OLLAMA_BIND`). Migrationen im laufenden Container erzeugen
 und zurueckkopieren (DATABASE_URL zeigt auf `db`, nicht `localhost`):
 
 ```
@@ -229,7 +229,8 @@ Hinweise:
   angelegtes** Volume `daten` behaelt die alte Besitzer-UID: Besitzer anpassen
   (`docker run --rm -v <projekt>_daten:/data alpine chown -R 1001:1001 /data`) oder das Volume
   neu anlegen (`docker compose down -v`, loescht Daten).
-- Auf dem Server MUSS `SQL_READONLY_URL` gesetzt sein (siehe SQL read-only).
+- Auf dem Server `APP_BIND=0.0.0.0` UND `API_TOKEN` setzen (Default ist 127.0.0.1; ohne Token ist `/api` offen).
+- Auf dem Server MUSS `SQL_READONLY_URL` gesetzt sein (siehe SQL read-only). Es gibt keinen Fallback auf `DATABASE_URL`: ohne die Variable meldet die SQL-Seite/`vfm sql` einen Fehler.
 - amd64-Image: nur gebaut und per Architektur-Inspektion geprueft, nicht auf dem Server gelaufen.
   `einspielen.ps1` ist nie mit echtem PowerShell gelaufen.
 

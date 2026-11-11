@@ -52,7 +52,9 @@ cp .env.example .env
 ```
 
 (Die Modelle sind zusammen mehrere GB gross; `ollama pull` erst im WLAN mit
-Zeit starten.) Danach "Starten". Beim ersten `docker compose up -d` wird das Image gebaut: das
+Zeit starten.) Stelle in der Ollama-App die Kontextlaenge auf mindestens 16k
+(Einstellungen) oder starte Ollama mit `OLLAMA_CONTEXT_LENGTH=16384`; sonst
+schneidet Ollama lange Dokumente still ab. Danach "Starten". Beim ersten `docker compose up -d` wird das Image gebaut: das
 dauert mehrere Minuten, braucht Internet und laedt mehrere GB.
 
 ### Starten
@@ -92,11 +94,11 @@ Alle Befehle laufen im Container: `docker compose exec app vfm <Befehl>`.
 | `vfm ingest <Pfad>` | Liest Datei oder Ordner ein und holt den Text heraus. `--methode schnell\|docling\|vision\|alle` waehlt bei PDFs die Textmethode | `vfm ingest /material --methode alle` |
 | `vfm text <ID>` | Zeigt den aktiven Text; `--vergleich` stellt die Methoden nebeneinander, `--aktiv <Methode>` waehlt eine aus | `vfm text 4 --vergleich` |
 | `vfm sql "<Abfrage>"` | Fuehrt eine lesende SQL-Abfrage aus (`--limit` begrenzt die Zeilen) | `vfm sql "SELECT typ, count(*) FROM dokument GROUP BY typ"` |
-| `vfm ner` | Erkennt Entitaeten. `--methode gliner\|muster\|llm\|alle`, `--dokument <ID>`, `--labels person,iban`, `--vergleich` | `vfm ner --methode alle --vergleich --dokument 3` |
+| `vfm ner` | Erkennt Entitaeten. `--methode gliner\|muster\|llm\|alle`, `--dokument <ID>`, `--labels person,iban`, `--vergleich`, `--alle-neu` (sonst werden vorhandene Ergebnisse uebersprungen) | `vfm ner --methode alle --vergleich --dokument 3` |
 | `vfm embed` | Berechnet Vektoren fuer alle Textabschnitte; `--alle-neu` rechnet neu | `vfm embed` |
 | `vfm suche "<Anfrage>"` | Semantische Suche; Rerank = ein zweites Modell sortiert die Kandidaten genauer nach der Frage neu; `--volltext`, `--ohne-rerank`, `--top-n`, `--top-k` | `vfm suche "Wer liefert Lagerdienstleistungen?"` |
 | `vfm frage "<Frage>"` | Antwort mit Quellenangaben (RAG); `--top-k` | `vfm frage "Wie hoch ist der Vertragswert?"` |
-| `vfm analyse` | Zusammenfassung, Kategorie, Bildbeschreibung. `--art zusammenfassung\|klassifikation\|bildbeschreibung\|alle`, `--dokument <ID>` | `vfm analyse --art zusammenfassung` |
+| `vfm analyse` | Zusammenfassung, Kategorie, Bildbeschreibung. `--art zusammenfassung\|klassifikation\|bildbeschreibung\|alle`, `--dokument <ID>`, `--alle-neu` (sonst werden vorhandene Analysen uebersprungen) | `vfm analyse --art zusammenfassung` |
 | `vfm pipeline <Ordner>` | Einlesen, Entitaeten (GliNER + Muster), Embeddings und Analysen in einem Zug | `vfm pipeline /material` |
 
 Mit `vfm --provider cortecs <Befehl>` (oder `-p`) wechselst du den Anbieter
@@ -122,7 +124,9 @@ Cortecs-Werte (Modellnamen, Adressen) in `profile/cortecs.env` sind noch **nicht
 geprueft**. Wenn `vfm check` Fehler zeigt, bitte melden.
 
 Einzelne Werte (z. B. `CHAT_MODEL`) kannst du in der `.env` ueberschreiben; sie
-haben Vorrang vor den Profilen in `profile/`.
+haben Vorrang vor den Profilen in `profile/`. Das gilt auch fuer `-p cortecs`: Der
+Schalter waehlt nur das Profil, Werte aus `.env` oder der Umgebung schlagen es
+weiterhin.
 
 Wichtig: Embeddings werden je Modell gespeichert. Wechselst du das
 Embedding-Modell, laeuft `vfm embed` einmal neu; die Suche nutzt immer das
@@ -141,6 +145,12 @@ aktuelle Modell.
   ziehen und in der `.env` die drei `*_BASE_URL` auf `http://ollama:11434/v1`
   setzen.
 
+**Lange Dokumente werden nur teilweise ausgewertet (Zusammenfassung ignoriert das Ende)**
+- Ollama schneidet Eingaben still am Kontextfenster ab. Kontextlaenge in der
+  Ollama-App auf mindestens 16k stellen (Einstellungen) bzw. Ollama mit
+  `OLLAMA_CONTEXT_LENGTH=16384` starten. Im Container (`--profile ollama`) ist das
+  bereits gesetzt.
+
 **Der Container bricht ab oder ist extrem langsam (zu wenig Arbeitsspeicher)**
 - Docker Desktop: Einstellungen, Resources, Memory auf mindestens 8 GB.
 - colima: `colima stop && colima start --memory 8` (oder mehr).
@@ -151,9 +161,14 @@ aktuelle Modell.
 - Das Einspiel-Skript wurde noch nicht auf einem echten Windows-Rechner getestet.
   Wenn es hakt, melde dich - Weg B funktioniert auch unter Windows.
 
+**Auf einem Server erreichbar machen**
+- Standardmaessig ist die Oberflaeche nur lokal (127.0.0.1) erreichbar. Auf einem Server
+  `APP_BIND=0.0.0.0` und `API_TOKEN=...` in der `.env` setzen, dazu `SQL_READONLY_URL`
+  (die SQL-Seite hat keinen Fallback auf die Haupt-Datenbank).
+
 **Port 8999 ist belegt**
-- In `docker-compose.yml` die Zeile `"8999:8000"` aendern, z. B. auf `"9001:8000"`,
-  dann `docker compose up -d` und die neue Adresse im Browser nutzen.
+- In `docker-compose.yml` die Zeile `"${APP_BIND:-127.0.0.1}:8999:8000"` aendern, z. B. auf
+  `"${APP_BIND:-127.0.0.1}:9001:8000"`, dann `docker compose up -d` und die neue Adresse im Browser nutzen.
 
 **Der erste Docling-Lauf dauert lange**
 - Docling (OCR fuer Scans) braucht beim ersten Mal ein paar Sekunden zum

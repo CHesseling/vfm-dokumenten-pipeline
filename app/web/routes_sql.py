@@ -11,8 +11,11 @@ router = APIRouter()
 LIMIT = 500
 
 
-def get_sql_engine(s: Settings = Depends(get_settings)) -> Engine:
-    return lese_engine(s)
+def get_sql_engine(s: Settings = Depends(get_settings)) -> Engine | SqlFehler:
+    try:
+        return lese_engine(s)
+    except SqlFehler as fehler:  # fehlender Lesezugang: als Meldung auf der Seite zeigen
+        return fehler
 
 
 def _seite(request: Request, sql: str, ergebnis=None, fehler: str | None = None):
@@ -40,8 +43,10 @@ def sql_formular(request: Request):
 
 @router.post("/sql")
 def sql_abfragen(
-    request: Request, sql: str = Form(""), engine: Engine = Depends(get_sql_engine)
+    request: Request, sql: str = Form(""), engine: Engine | SqlFehler = Depends(get_sql_engine)
 ):
+    if isinstance(engine, SqlFehler):
+        return _seite(request, sql, fehler=str(engine))
     try:
         ergebnis = sql_ausfuehren(engine, sql, limit=LIMIT)
     except SqlFehler as fehler:

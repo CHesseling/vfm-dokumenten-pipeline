@@ -226,7 +226,7 @@ def analyse_starten(
         raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
     ziel = f"/dokumente/{dokument_id}"
     try:
-        bilanz = analyse_ausfuehren(session, s, set(AnalyseArt), dokument_id=dokument_id)
+        bilanz = analyse_ausfuehren(session, s, set(AnalyseArt), dokument_id=dokument_id, nur_fehlende=False)
     except Exception:  # noqa: BLE001 - Details stehen im Log, die Seite zeigt nur den festen Hinweis
         logger.exception("Analyse fuer Dokument %s fehlgeschlagen", dokument_id)
         session.rollback()

@@ -215,6 +215,9 @@ Dieser Stick enthaelt alles, um die Pipeline ohne Internet zu starten.
 - Fuer die lokalen Modelle: Ollama (https://ollama.com) ist auf dem
   Rechner installiert, oder du nutzt das mitgelieferte Ollama-Image
   (Variante B unten).
+- In der Ollama-App die Kontextlaenge auf mindestens 16k stellen (oder Ollama
+  mit OLLAMA_CONTEXT_LENGTH=16384 starten), sonst schneidet Ollama lange
+  Dokumente still ab. Variante B setzt das bereits.
 
 ## Einspielen
 

@@ -35,7 +35,7 @@ class FakeLlm:
 def test_ner_ersetzt_alte_entitaeten(session, s):
     _, e = _extraktion(session, f"Konto {IBAN} bitte.")
     for _ in range(2):
-        ner_ausfuehren(session, s, {NerMethode.MUSTER})
+        ner_ausfuehren(session, s, {NerMethode.MUSTER}, nur_fehlende=False)
     ents = session.query(Entitaet).filter_by(textextraktion_id=e.id).all()
     assert len([x for x in ents if x.label == "iban"]) == 1
     laeufe = session.query(Lauf).filter_by(schritt="ner:muster").all()
@@ -57,7 +57,7 @@ def test_vergleich_methoden(session, s, monkeypatch):
     assert len(zeilen) == 1
     assert zeilen[0].label == "iban" and zeilen[0].methoden == {"muster", "llm"}
     lauf = session.query(Lauf).filter_by(schritt="ner:llm").one()
-    assert lauf.modell == "chat-m" and lauf.roh_output == {"verworfen": 0}
+    assert lauf.modell == "chat-m" and lauf.roh_output == {"verworfen": 0, "extraktion_id": e.id}
 
 
 def test_fehler_einer_methode_stoppt_nicht(session, s, monkeypatch):
@@ -77,3 +77,28 @@ def test_nur_ein_dokument_und_abbruch(session, s):
     _extraktion(session, f"Konto {IBAN}", "b", "2")
     assert ner_ausfuehren(session, s, {NerMethode.MUSTER}, dokument_id=d1.id).dokumente == 1
     assert ner_ausfuehren(session, s, {NerMethode.MUSTER}, soll_abbrechen=lambda: True).dokumente == 0
+
+
+def test_ner_zweiter_lauf_ueberspringt_vorhandenes(session, s, monkeypatch):
+    _extraktion(session, f"Konto {IBAN} bitte.")
+    _extraktion(session, "Hier steht nichts Erkennbares.", name="b.txt", sha="y")
+    ner_ausfuehren(session, s, {NerMethode.MUSTER})
+    laeufe = session.query(Lauf).count()
+    monkeypatch.setattr(ablauf, "finde_muster", lambda *a, **k: pytest.fail("sollte nicht rechnen"))
+    bilanz = ner_ausfuehren(session, s, {NerMethode.MUSTER})
+    assert bilanz.vorhanden == 2 and bilanz.entitaeten == 0
+    assert session.query(Lauf).count() == laeufe  # auch das Dokument ohne Treffer wird nicht neu gerechnet
+
+
+def test_ner_alle_neu_rechnet_neu(session, s):
+    _extraktion(session, f"Konto {IBAN} bitte.")
+    ner_ausfuehren(session, s, {NerMethode.MUSTER})
+    bilanz = ner_ausfuehren(session, s, {NerMethode.MUSTER}, nur_fehlende=False)
+    assert bilanz.entitaeten >= 1 and session.query(Lauf).count() == 2
+
+
+def test_ner_leerer_text_nur_einmal_protokolliert(session, s):
+    _extraktion(session, "   ")
+    for _ in range(3):
+        ner_ausfuehren(session, s, {NerMethode.MUSTER}, nur_fehlende=False)
+    assert session.query(Lauf).filter_by(status=LaufStatus.UEBERSPRUNGEN).count() == 1

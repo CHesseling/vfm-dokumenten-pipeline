@@ -152,6 +152,7 @@ class LLMClient:
         structured_outputs: bool = False,
         extra_body: dict | None = None,
         rolle: str = "chat",
+        connect_timeout: float | None = None,
     ):
         self.model = model
         self.rolle = rolle
@@ -170,7 +171,9 @@ class LLMClient:
             # Antworten mal httpx' ReadTimeout das Rennen, mal das wall-clock-
             # Budget aus _chat_completion - auf dem Server lagen beide nur 46 ms
             # auseinander. Siehe LLMGesamtTimeoutError-Docstring.
-            timeout=max(timeout, gesamt_timeout + HTTPX_TIMEOUT_PUFFER_SEKUNDEN),
+            timeout=httpx.Timeout(
+                max(timeout, gesamt_timeout + HTTPX_TIMEOUT_PUFFER_SEKUNDEN), connect=connect_timeout
+            ),
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
         )
 

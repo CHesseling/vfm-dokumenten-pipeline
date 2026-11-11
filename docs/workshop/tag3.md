@@ -1,7 +1,7 @@
 # Spickzettel Tag 3 (Mi 2.12.): Suche, RAG und Agent
 
 Heute: Embeddings, Re-Ranking, top-k, "Chatte mit deinen Dokumenten" (RAG) und
-ein Agent (Hermes, der Recherche-Agent aus Jans Session), der die Pipeline ueber die Schnittstelle `/api` nutzt.
+ein Agent (Hermes, ein Recherche-Agent), der die Pipeline ueber die Schnittstelle `/api` nutzt.
 
 Befehle in der Container-Shell (`docker compose exec app bash`) oder mit dem
 Praefix `docker compose exec app vfm ...`.

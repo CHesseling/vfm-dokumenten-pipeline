@@ -155,7 +155,7 @@ def test_analyse_ersetzt_alte(session, s):
     respx.post(CHAT).mock(side_effect=[_antwort("Erste."), _antwort("Zweite.")])
     arten = {AnalyseArt.ZUSAMMENFASSUNG}
     b1 = analyse_ausfuehren(session, s, arten)
-    b2 = analyse_ausfuehren(session, s, arten, dokument_id=d.id)
+    b2 = analyse_ausfuehren(session, s, arten, dokument_id=d.id, nur_fehlende=False)
     zeilen = session.exec(select(Analyse)).all()
     assert len(zeilen) == 1 and zeilen[0].ergebnis == {"text": "Zweite."} and zeilen[0].modell == "chat-m"
     assert b1.erzeugt == 1 and b2.erzeugt == 1
@@ -187,3 +187,27 @@ def test_bildbeschreibung_end_to_end(session, s):
     bilanz = analyse_ausfuehren(session, s, {AnalyseArt.BILDBESCHREIBUNG})
     assert bilanz.erzeugt == 1
     assert session.exec(select(Analyse)).one().ergebnis == {"text": "Ein rotes Quadrat."}
+
+
+@respx.mock
+def test_zweiter_lauf_rechnet_nichts_neu(session, s):
+    _dok(session, "a.txt", "Ein Text zum Zusammenfassen.", "n1")
+    route = respx.post(CHAT).mock(return_value=_antwort("Zusammenfassung."))
+    arten = {AnalyseArt.ZUSAMMENFASSUNG}
+    erster = analyse_ausfuehren(session, s, arten)
+    assert erster.erzeugt == 1 and route.call_count == 1
+    laeufe = len(session.exec(select(Lauf)).all())
+    zweiter = analyse_ausfuehren(session, s, arten)
+    assert zweiter.erzeugt == 0 and zweiter.vorhanden == 1
+    assert route.call_count == 1  # 0 neue LLM-Calls
+    assert len(session.exec(select(Lauf)).all()) == laeufe  # 0 neue Laeufe
+    dritter = analyse_ausfuehren(session, s, arten, nur_fehlende=False)
+    assert dritter.erzeugt == 1 and route.call_count == 2
+
+
+def test_leerer_text_nur_einmal_protokolliert(session, s):
+    _dok(session, "leer.txt", "   ", "n2")
+    for _ in range(3):
+        analyse_ausfuehren(session, s, {AnalyseArt.ZUSAMMENFASSUNG}, nur_fehlende=False)
+    laeufe = session.exec(select(Lauf).where(Lauf.status == LaufStatus.UEBERSPRUNGEN)).all()
+    assert len(laeufe) == 1

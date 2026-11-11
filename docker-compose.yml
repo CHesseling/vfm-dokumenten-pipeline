@@ -34,7 +34,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8999:8000"
+      - "${APP_BIND:-127.0.0.1}:8999:8000"
     volumes:
       - daten:/data
       - ./material:/material
@@ -44,10 +44,14 @@ services:
   ollama:
     image: ollama/ollama
     profiles: ["ollama"]
+    environment:
+      # Ollama-Standard ist ein kleines Kontextfenster; laengere Dokumente
+      # wuerden sonst still abgeschnitten.
+      OLLAMA_CONTEXT_LENGTH: "16384"
     volumes:
       - ollama:/root/.ollama
     ports:
-      - "11434:11434"
+      - "${OLLAMA_BIND:-127.0.0.1}:11434:11434"
 
 volumes:
   postgres_data:

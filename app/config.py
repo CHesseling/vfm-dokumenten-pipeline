@@ -1,5 +1,6 @@
 import os
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from dotenv import dotenv_values
@@ -7,6 +8,23 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROVIDER_ERLAUBT = ("ollama", "cortecs")
+
+# Pfade relativ zum Paket aufloesen, nicht zum Arbeitsverzeichnis: `vfm` laeuft
+# auch aus anderen Ordnern (z. B. ueber den Konsolen-Einstiegspunkt).
+PAKET = Path(__file__).resolve().parent
+REPO_ROOT = PAKET.parent
+
+
+def repo_pfad(pfad: str | Path) -> Path:
+    """Relative Pfade gelten ab dem Repo-Root (im Image: /app)."""
+    pfad = Path(pfad)
+    return pfad if pfad.is_absolute() else REPO_ROOT / pfad
+
+
+def _env_datei() -> Path:
+    """`.env` aus dem Arbeitsverzeichnis, sonst die im Repo-Root."""
+    lokal = Path(".env")
+    return lokal if lokal.is_file() else REPO_ROOT / ".env"
 
 
 class Settings(BaseSettings):
@@ -88,7 +106,7 @@ def lade_settings(provider: str | None = None) -> Settings:
     if provider is None:
         provider = (
             os.environ.get("PROVIDER")
-            or dotenv_values(".env").get("PROVIDER")
+            or dotenv_values(_env_datei()).get("PROVIDER")
             or "ollama"
         )
     if provider not in PROVIDER_ERLAUBT:
@@ -96,7 +114,7 @@ def lade_settings(provider: str | None = None) -> Settings:
             f"Unbekannter Provider '{provider}' – erlaubt: {', '.join(PROVIDER_ERLAUBT)}"
         )
     return Settings(
-        _env_file=(f"profile/{provider}.env", ".env"),
+        _env_file=(REPO_ROOT / "profile" / f"{provider}.env", _env_datei()),
         provider=provider,
     )
 

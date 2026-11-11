@@ -26,6 +26,7 @@ class NerBilanz:
     entitaeten: int = 0
     fehler: int = 0
     uebersprungen: int = 0
+    vorhanden: int = 0
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,24 @@ def _modell(methode: NerMethode, s: Settings) -> str | None:
     return {NerMethode.GLINER: s.gliner_model, NerMethode.LLM: s.chat_model}.get(methode)
 
 
+def _schon_protokolliert(session: Session, dokument_id: int, schritt: str, status: LaufStatus) -> list[Lauf]:
+    return session.exec(
+        select(Lauf).where(Lauf.dokument_id == dokument_id, Lauf.schritt == schritt, Lauf.status == status)
+    ).all()
+
+
+def _ner_vorhanden(session: Session, ex_id: int, dok_id: int, methode: NerMethode, schritt: str) -> bool:
+    """Gibt es fuer diese Extraktion und Methode schon Entitaeten oder einen erfolgreichen Lauf?"""
+    if session.exec(
+        select(Entitaet.id).where(Entitaet.textextraktion_id == ex_id, Entitaet.methode == methode).limit(1)
+    ).first() is not None:
+        return True
+    return any(
+        (l.roh_output or {}).get("extraktion_id") == ex_id
+        for l in _schon_protokolliert(session, dok_id, schritt, LaufStatus.ERFOLG)
+    )
+
+
 def ner_ausfuehren(
     session: Session,
     s: Settings,
@@ -61,7 +80,9 @@ def ner_ausfuehren(
     labels: list[str] | None = None,
     bei_dokument=None,
     soll_abbrechen=None,
+    nur_fehlende: bool = True,
 ) -> NerBilanz:
+    """nur_fehlende=True ueberspringt (Extraktion, Methode)-Paare mit vorhandenem Ergebnis."""
     labels = list(labels or LABELS)
     abfrage = select(TextExtraktion).where(TextExtraktion.ist_aktiv.is_(True))
     if dokument_id is not None:
@@ -80,10 +101,15 @@ def ner_ausfuehren(
             schritt = f"ner:{methode.value}"
             modell = _modell(methode, s)
             if not text.strip():
+                if _schon_protokolliert(session, dok_id, schritt, LaufStatus.UEBERSPRUNGEN):
+                    continue  # leerer Text wird nur einmal protokolliert
                 session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
                                  status=LaufStatus.UEBERSPRUNGEN, fehler="leerer Text"))
                 session.commit()
                 bilanz.uebersprungen += 1
+                continue
+            if nur_fehlende and _ner_vorhanden(session, ex_id, dok_id, methode, schritt):
+                bilanz.vorhanden += 1
                 continue
             start = time.monotonic()
             statistik: dict = {}
@@ -99,7 +125,7 @@ def ner_ausfuehren(
                                          normalisiert=t.normalisiert, start=t.start, ende=t.ende, score=t.score))
                 session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
                                  dauer_ms=int((time.monotonic() - start) * 1000), status=LaufStatus.ERFOLG,
-                                 roh_output=statistik or None))
+                                 roh_output={**statistik, "extraktion_id": ex_id}))
                 session.commit()
                 bilanz.entitaeten += len(treffer)
             except Exception as e:  # noqa: BLE001 - eine Methode darf die anderen nicht stoppen

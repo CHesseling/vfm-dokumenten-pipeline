@@ -50,11 +50,12 @@ Dasselbe Dokument zweimal einzulesen ist harmlos (wird erkannt: "bekannt").
 | `docling` | Layout- und OCR-Erkennung (lokal) | ca. 10-20 s je Seite | Scans, Tabellen |
 | `vision` | Seitenbild an das Vision-Modell | ca. 30-60 s je Seite | schwierige Scans, Handschriftnahes |
 
-Standard ist `schnell`; findet es fast keinen Text (z. B. bei Scans), kommt
+`--methode alle` nur auf eine einzelne Datei anwenden: fuer einen ganzen Ordner
+ist es auf CPU sehr langsam. Standard ist `schnell`; findet es fast keinen Text (z. B. bei Scans), kommt
 `docling` automatisch dazu.
 
 ```bash
-vfm ingest /material --methode alle            # alle drei Methoden fuer alle PDFs
+vfm ingest /material/scan.pdf --methode alle   # alle drei Methoden fuer EINE Datei
 vfm ingest /material/scan.pdf --methode docling
 vfm text <ID> --vergleich                      # Methoden nebeneinander (Zeichen, Dauer, Anfang)
 vfm text <ID>                                  # aktiven Text ganz anzeigen

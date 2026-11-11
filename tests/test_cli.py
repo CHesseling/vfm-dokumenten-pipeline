@@ -17,6 +17,7 @@ def cli_settings(engine):
 
     return Settings(
         database_url=TEST_DATABASE_URL,
+        sql_readonly_url=TEST_DATABASE_URL,
         chat_base_url="http://chat/v1",
         chat_model="chat-m",
         embed_base_url="http://embed/v1",
@@ -107,6 +108,7 @@ def test_unvollstaendige_konfiguration(tmp_path, monkeypatch):
     from app.config import Settings
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("app.config.REPO_ROOT", tmp_path)
     for n in {n.upper() for n in Settings.model_fields} | {"PROVIDER", "CORTECS_API_KEY"}:
         monkeypatch.delenv(n, raising=False)
     (tmp_path / "profile").mkdir()
@@ -236,9 +238,11 @@ def test_analyse_cli(session, cli_settings, monkeypatch):
     from app.enums import AnalyseArt
 
     aufrufe = []
+    flags = []
 
-    def fake(session, s, arten, dokument_id=None, bei_dokument=None, soll_abbrechen=None):
+    def fake(session, s, arten, dokument_id=None, bei_dokument=None, soll_abbrechen=None, nur_fehlende=True):
         aufrufe.append((arten, dokument_id))
+        flags.append(nur_fehlende)
         return ablauf.AnalyseBilanz(dokumente=2, erzeugt=3, fehler=1, uebersprungen=0)
 
     monkeypatch.setattr(ablauf, "analyse_ausfuehren", fake)
@@ -249,6 +253,8 @@ def test_analyse_cli(session, cli_settings, monkeypatch):
     r = runner.invoke(cli.app, ["analyse"], obj=cli_settings)
     assert aufrufe[-1] == (set(AnalyseArt), None)
     assert runner.invoke(cli.app, ["analyse", "--art", "quark"], obj=cli_settings).exit_code == 2
+    runner.invoke(cli.app, ["analyse", "--alle-neu"], obj=cli_settings)
+    assert flags == [True, True, False]
 
 
 def _pipeline_stufen(monkeypatch, embed_fehler=False):
@@ -318,3 +324,35 @@ def test_frage_bei_rerank_fehler_exit_2(cli_settings, session, monkeypatch):
     assert r.exit_code == 2
     assert "model requires more system memory" in r.output
     assert "Traceback" not in r.output
+
+
+def test_status_aus_fremdem_arbeitsverzeichnis(tmp_path, monkeypatch, engine):
+    from tests.conftest import TEST_DATABASE_URL
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
+    r = runner.invoke(cli.app, ["status"])
+    assert r.exit_code == 0, r.output
+    assert "pdf" in r.output
+
+
+def test_sql_befehl_ohne_readonly_url(cli_settings):
+    cli_settings.sql_readonly_url = None
+    r = runner.invoke(cli.app, ["sql", "SELECT 1"], obj=cli_settings)
+    assert r.exit_code == 1
+    assert "SQL_READONLY_URL ist nicht gesetzt" in r.output and "Traceback" not in r.output
+
+
+def test_ner_cli_alle_neu(session, cli_settings, monkeypatch):
+    import app.ner.ablauf as ner
+
+    flags = []
+
+    def fake(session, s, methoden, nur_fehlende=True, **k):
+        flags.append(nur_fehlende)
+        return ner.NerBilanz(dokumente=1)
+
+    monkeypatch.setattr(ner, "ner_ausfuehren", fake)
+    assert runner.invoke(cli.app, ["ner"], obj=cli_settings).exit_code == 0
+    assert runner.invoke(cli.app, ["ner", "--alle-neu"], obj=cli_settings).exit_code == 0
+    assert flags == [True, False]

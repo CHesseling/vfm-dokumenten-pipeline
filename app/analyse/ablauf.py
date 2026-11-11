@@ -50,6 +50,7 @@ class AnalyseBilanz:
     erzeugt: int = 0
     fehler: int = 0
     uebersprungen: int = 0
+    vorhanden: int = 0
 
 
 def _frage(system: str, text: str) -> list[dict]:
@@ -121,7 +122,9 @@ def analyse_ausfuehren(
     dokument_id: int | None = None,
     bei_dokument=None,
     soll_abbrechen=None,
+    nur_fehlende: bool = True,
 ) -> AnalyseBilanz:
+    """nur_fehlende=True ueberspringt Dokument/Art-Paare mit vorhandener Analyse (ohne neuen Lauf)."""
     abfrage = select(Dokument).order_by(Dokument.id)
     if dokument_id is not None:
         abfrage = abfrage.where(Dokument.id == dokument_id)
@@ -148,11 +151,23 @@ def analyse_ausfuehren(
             else:
                 modell = s.chat_model
                 if not text.strip():
+                    if session.exec(
+                        select(Lauf.id).where(
+                            Lauf.dokument_id == dok_id, Lauf.schritt == schritt,
+                            Lauf.status == LaufStatus.UEBERSPRUNGEN,
+                        ).limit(1)
+                    ).first() is not None:
+                        continue  # leerer Text wird nur einmal protokolliert
                     session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
                                      status=LaufStatus.UEBERSPRUNGEN, fehler="leerer Text"))
                     session.commit()
                     bilanz.uebersprungen += 1
                     continue
+            if nur_fehlende and session.exec(
+                select(Analyse.id).where(Analyse.dokument_id == dok_id, Analyse.art == art).limit(1)
+            ).first() is not None:
+                bilanz.vorhanden += 1
+                continue
             start = time.monotonic()
             try:
                 if art == AnalyseArt.ZUSAMMENFASSUNG:

@@ -13,6 +13,7 @@ class EmbeddingClient:
         timeout: float = 60.0,
         batch: int = 32,
         rolle: str = "embed",
+        connect_timeout: float | None = None,
     ):
         self.model = model
         self.rolle = rolle
@@ -21,7 +22,7 @@ class EmbeddingClient:
         self._batch = max(1, batch)
         self._client = httpx.Client(
             base_url=self._base_url,
-            timeout=timeout,
+            timeout=httpx.Timeout(timeout, connect=connect_timeout),
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
         )
 

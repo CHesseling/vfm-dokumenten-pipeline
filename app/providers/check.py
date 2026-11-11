@@ -14,6 +14,12 @@ from app.providers import factory
 from app.providers.llm_client import ProviderFehler, bild_nachricht
 
 
+# Der Check darf nie minutenlang haengen (Chat-Standardbudget sind 600 s):
+# kurzes Gesamtbudget je Rolle, Verbindungsaufbau nach wenigen Sekunden aufgeben.
+CHECK_GESAMT_TIMEOUT = 90.0
+CHECK_VERBINDUNG_TIMEOUT = 5.0
+
+
 @dataclass
 class RollenCheck:
     rolle: str
@@ -44,7 +50,7 @@ def _fehlertext(fehler: BaseException) -> str:
 
 
 def _chat(s: Settings) -> str:
-    antwort = factory.chat_client(s).chat_text(
+    antwort = factory.chat_client(s, gesamt_timeout=CHECK_GESAMT_TIMEOUT, connect_timeout=CHECK_VERBINDUNG_TIMEOUT).chat_text(
         [{"role": "user", "content": "Antworte nur mit OK."}]
     )
     return f"Antwort: {antwort[:40]}"
@@ -52,18 +58,18 @@ def _chat(s: Settings) -> str:
 
 def _vision(s: Settings) -> str:
     nachricht = bild_nachricht("Welche Farbe?", [(_weisses_png(), "image/png")])
-    antwort = factory.vision_client(s).chat_text([nachricht])
+    antwort = factory.vision_client(s, gesamt_timeout=CHECK_GESAMT_TIMEOUT, connect_timeout=CHECK_VERBINDUNG_TIMEOUT).chat_text([nachricht])
     return f"Antwort: {antwort[:40]}"
 
 
 def _embed(s: Settings) -> str:
-    return f"Dimension {len(factory.embedding_client(s).embed('Test'))}"
+    return f"Dimension {len(factory.embedding_client(s, timeout=CHECK_GESAMT_TIMEOUT, connect_timeout=CHECK_VERBINDUNG_TIMEOUT).embed('Test'))}"
 
 
 def _rerank(s: Settings) -> str:
     if s.rerank_backend == "none":
         return "deaktiviert"
-    factory.reranker(s).rerank("Test", ["erster Text", "zweiter Text"])
+    factory.reranker(s, timeout=CHECK_GESAMT_TIMEOUT, connect_timeout=CHECK_VERBINDUNG_TIMEOUT).rerank("Test", ["erster Text", "zweiter Text"])
     return "Rerank-Aufruf erfolgreich"
 
 

@@ -132,10 +132,10 @@ def test_analyse_starten(client, session, monkeypatch):
     d = _dok_mit_text(session)
     aufrufe = []
     monkeypatch.setattr(rd, "analyse_ausfuehren",
-                        lambda session, s, arten, dokument_id=None, **k: aufrufe.append((arten, dokument_id)) or AnalyseBilanz())
+                        lambda session, s, arten, dokument_id=None, **k: aufrufe.append((arten, dokument_id, k)) or AnalyseBilanz())
     r = client.post(f"/dokumente/{d.id}/analyse")
     assert r.status_code == 303 and r.headers["location"] == f"/dokumente/{d.id}"
-    assert aufrufe == [(set(AnalyseArt), d.id)]
+    assert aufrufe == [(set(AnalyseArt), d.id, {"nur_fehlende": False})]  # Einzel-Button rechnet neu
 
 
 def test_analyse_fehler_fester_text(client, session, monkeypatch):

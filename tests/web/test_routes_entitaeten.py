@@ -59,6 +59,16 @@ def test_ner_starten_redirect(client, session, monkeypatch):
     assert "ent-iban" in client.get(f"/dokumente/{d.id}").text
 
 
+def test_ner_einzel_button_rechnet_neu(client, session, monkeypatch):
+    from app.ner.ablauf import NerBilanz
+
+    d, _ = _dok(session, "a.txt", "x", [], "1")
+    kwargs = []
+    monkeypatch.setattr(re_, "ner_ausfuehren", lambda *a, **k: kwargs.append(k) or NerBilanz())
+    client.post(f"/dokumente/{d.id}/ner", data={"methode": ["muster"]})
+    assert kwargs[0]["nur_fehlende"] is False
+
+
 def test_ner_starten_providerfehler(client, session, monkeypatch):
     d, _ = _dok(session, "a.txt", "x", [], "1")
 

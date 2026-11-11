@@ -29,8 +29,12 @@ class SqlErgebnis:
 
 
 def lese_engine(s: Settings) -> Engine:
-    """Engine fuer die SQL-Seite: Leserolle, sonst die Haupt-URL (je URL gecacht)."""
-    url = s.sql_readonly_url or s.database_url
+    """Engine fuer die SQL-Seite: nur die Leserolle (je URL gecacht), nie die Haupt-URL."""
+    url = s.sql_readonly_url
+    if not url:
+        raise SqlFehler(
+            "SQL_READONLY_URL ist nicht gesetzt – die SQL-Seite braucht den Lesezugang (siehe .env.example)."
+        )
     if url not in _engines:
         _engines[url] = create_engine(url)
     return _engines[url]

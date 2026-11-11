@@ -113,7 +113,7 @@ def ner_starten(
     methoden = {NerMethode(m) for m in methode if m in erlaubt} or {NerMethode(m) for m in STANDARD_METHODEN}
     ziel = f"/dokumente/{dokument_id}"
     try:
-        bilanz = ner_ausfuehren(session, s, methoden, dokument_id=dokument_id)
+        bilanz = ner_ausfuehren(session, s, methoden, dokument_id=dokument_id, nur_fehlende=False)
     except ProviderFehler as fehler:
         session.rollback()
         session.add(Lauf(schritt="ner", dokument_id=dokument_id, provider=s.provider, status=LaufStatus.FEHLER,

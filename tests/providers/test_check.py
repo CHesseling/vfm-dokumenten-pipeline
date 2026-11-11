@@ -107,7 +107,7 @@ def test_rerank_lokal_nutzt_reranker(monkeypatch):
         def rerank(self, frage, texte):
             return [(0, 1.0), (1, 0.5)]
 
-    monkeypatch.setattr(check_modul.factory, "reranker", lambda s: Fake())
+    monkeypatch.setattr(check_modul.factory, "reranker", lambda s, **k: Fake())
     assert _nach_rolle(pruefe_rollen(_settings(rerank_backend="local")))["rerank"].ok
 
 
@@ -121,7 +121,7 @@ def test_rerank_lokal_fehler(monkeypatch):
         def rerank(self, frage, texte):
             raise OSError("Modell nicht im Cache")
 
-    monkeypatch.setattr(check_modul.factory, "reranker", lambda s: Kaputt())
+    monkeypatch.setattr(check_modul.factory, "reranker", lambda s, **k: Kaputt())
     r = _nach_rolle(pruefe_rollen(_settings(rerank_backend="local")))["rerank"]
     assert not r.ok and "Modell nicht im Cache" in r.detail
 
@@ -138,3 +138,39 @@ def test_transcribe_lokal_ordner(tmp_path):
     (tmp_path / "w" / "model.bin").write_text("x")
     r = _nach_rolle(pruefe_rollen(s))["transcribe"]
     assert r.ok and str(tmp_path / "w") in r.detail
+
+
+@respx.mock
+def test_check_nutzt_kurze_timeouts(monkeypatch):
+    aufrufe = {}
+
+    def merke(name, original):
+        def huelle(*a, **k):
+            aufrufe[name] = k
+            return original(*a, **k)
+
+        return huelle
+
+    for name in ("chat_client", "vision_client", "embedding_client", "reranker"):
+        monkeypatch.setattr(check_modul.factory, name, merke(name, getattr(check_modul.factory, name)))
+    _chat_ok()
+    _embed_ok()
+    respx.get("http://tr/v1/models").mock(return_value=httpx.Response(200))
+    respx.post("http://rr/v1/rerank").mock(
+        return_value=httpx.Response(200, json={"results": [{"index": 0, "relevance_score": 1.0}]})
+    )
+    pruefe_rollen(_settings(rerank_backend="api", rerank_base_url="http://rr/v1"))
+    assert aufrufe["chat_client"] == {"gesamt_timeout": 90.0, "connect_timeout": 5.0}
+    assert aufrufe["vision_client"] == {"gesamt_timeout": 90.0, "connect_timeout": 5.0}
+    assert aufrufe["embedding_client"] == {"timeout": 90.0, "connect_timeout": 5.0}
+    assert aufrufe["reranker"] == {"timeout": 90.0, "connect_timeout": 5.0}
+
+
+def test_clients_geben_timeouts_an_httpx(monkeypatch):
+    from app.providers import factory
+
+    s = _settings()
+    c = factory.chat_client(s, gesamt_timeout=90.0, connect_timeout=5.0)
+    assert c._gesamt_timeout == 90.0 and c._client.timeout.connect == 5.0
+    e = factory.embedding_client(s, timeout=90.0, connect_timeout=5.0)
+    assert e._client.timeout.connect == 5.0 and e._client.timeout.read == 90.0
