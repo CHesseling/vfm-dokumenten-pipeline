@@ -3,7 +3,7 @@ import pytest
 import app.ner.ablauf as ablauf
 from app.config import Settings
 from app.enums import DokumentTyp, ExtraktionsMethode, LaufStatus, NerMethode
-from app.ner.ablauf import ner_ausfuehren, vergleich
+from app.ner.ablauf import entitaeten_loeschen, ner_ausfuehren, vergleich
 from app.ner.labels import LabelWunsch, labels_parsen
 from app.ner.llm_ner import LlmEntitaeten, LlmEntitaet
 from app.models import Dokument, Entitaet, Lauf, TextExtraktion
@@ -151,3 +151,32 @@ def test_eigene_labels_nicht_normalisiert(session, s, monkeypatch):
     ner_ausfuehren(session, s, {NerMethode.LLM, NerMethode.MUSTER}, labels=labels_parsen("aktenzeichen"))
     ent = session.query(Entitaet).one()
     assert ent.label == "aktenzeichen" and ent.normalisiert is None and ent.methode == NerMethode.LLM
+
+
+def test_loeschen_dann_wieder_fehlend(session, s):
+    _, e = _extraktion(session, f"Konto {IBAN} bitte.")
+    ner_ausfuehren(session, s, {NerMethode.MUSTER})
+    assert entitaeten_loeschen(session, e.id, {NerMethode.MUSTER}, "ollama") == 1
+    session.commit()
+    assert session.query(Entitaet).count() == 0
+    lauf = session.query(Lauf).filter_by(schritt="loeschen:ner:muster").one()
+    assert lauf.roh_output == {"extraktion_id": e.id, "geloescht": 1}
+    bilanz = ner_ausfuehren(session, s, {NerMethode.MUSTER})  # nur_fehlende=True
+    assert bilanz.vorhanden == 0 and session.query(Entitaet).count() == 1
+    assert ner_ausfuehren(session, s, {NerMethode.MUSTER}).vorhanden == 1  # danach wieder vorhanden
+
+
+def test_loeschen_nur_gewaehlte_methode(session, s, monkeypatch):
+    _, e = _extraktion(session, f"Konto {IBAN} bitte.")
+    monkeypatch.setattr(ablauf, "chat_client", lambda s: FakeLlm())
+    ner_ausfuehren(session, s, {NerMethode.MUSTER, NerMethode.LLM})
+    entitaeten_loeschen(session, e.id, {NerMethode.LLM}, "ollama")
+    session.commit()
+    assert [x.methode for x in session.query(Entitaet).all()] == [NerMethode.MUSTER]
+    assert ner_ausfuehren(session, s, {NerMethode.MUSTER, NerMethode.LLM}).vorhanden == 1
+
+
+def test_lauf_mit_null_treffern_bleibt_vorhanden(session, s):
+    _extraktion(session, "Hier steht nichts Erkennbares.")
+    ner_ausfuehren(session, s, {NerMethode.MUSTER})
+    assert ner_ausfuehren(session, s, {NerMethode.MUSTER}).vorhanden == 1

@@ -82,3 +82,21 @@ def vorhandene_modelle(session: Session) -> list[tuple[str, int]]:
         select(Embedding.modell, func.count()).group_by(Embedding.modell).order_by(Embedding.modell)
     ).all()
     return [(m, n) for m, n in zeilen]
+
+
+def embeddings_loeschen(session: Session, dokument_id: int, modell: str | None, provider: str) -> int:
+    """Loescht Embeddings aller Chunks des Dokuments (modell=None: alle Modelle).
+    Protokolliert einen Lauf `loeschen:embed`. Nur flush, Commit macht der Aufrufer."""
+    chunk_ids = (
+        select(Chunk.id)
+        .join(TextExtraktion, TextExtraktion.id == Chunk.textextraktion_id)
+        .where(TextExtraktion.dokument_id == dokument_id)
+    )
+    bedingung = Embedding.chunk_id.in_(chunk_ids)
+    if modell is not None:
+        bedingung = bedingung & (Embedding.modell == modell)
+    anzahl = session.execute(delete(Embedding).where(bedingung)).rowcount or 0
+    session.add(Lauf(schritt="loeschen:embed", dokument_id=dokument_id, provider=provider, modell=modell,
+                     status=LaufStatus.ERFOLG, roh_output={"geloescht": anzahl}))
+    session.flush()
+    return anzahl

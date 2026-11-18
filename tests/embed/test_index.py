@@ -4,7 +4,7 @@ import httpx
 import respx
 from sqlalchemy import select
 
-from app.embed.index import embed_ausfuehren, vorhandene_modelle
+from app.embed.index import embed_ausfuehren, embeddings_loeschen, vorhandene_modelle
 from app.enums import DokumentTyp, ExtraktionsMethode
 from app.models import Chunk, Dokument, Embedding, Lauf, TextExtraktion
 from app.providers.embeddings import EmbeddingClient
@@ -108,3 +108,36 @@ def test_abbrechen_und_fortschritt(session):
     )
 
     assert bilanz.neu == 2 and stand == [(1, 3), (2, 3)]
+
+
+def _zwei_dokumente_mit_embeddings(session):
+    c1 = chunks_anlegen(session, ["eins", "zwei"], sha="s1")
+    c2 = chunks_anlegen(session, ["drei"], sha="s2")
+    for c in c1 + c2:
+        for modell in ("a", "b"):
+            session.add(Embedding(chunk_id=c.id, modell=modell, vektor=[1.0, 2.0, 3.0]))
+    session.commit()
+    dok1 = session.get(TextExtraktion, c1[0].textextraktion_id).dokument_id
+    return dok1, c1, c2
+
+
+def _bestand(session):
+    return sorted((e.chunk_id, e.modell) for e in session.scalars(select(Embedding)).all())
+
+
+def test_embeddings_loeschen_aktuelles_modell(session):
+    dok1, c1, c2 = _zwei_dokumente_mit_embeddings(session)
+    n = embeddings_loeschen(session, dok1, "a", "ollama")
+    session.commit()
+    assert n == 2
+    erwartet = sorted([(c.id, "b") for c in c1] + [(c2[0].id, "a"), (c2[0].id, "b")])
+    assert _bestand(session) == erwartet
+    lauf = session.scalars(select(Lauf).where(Lauf.schritt == "loeschen:embed")).one()
+    assert lauf.roh_output == {"geloescht": 2} and lauf.modell == "a" and lauf.dokument_id == dok1
+
+
+def test_embeddings_loeschen_alle_modelle(session):
+    dok1, c1, c2 = _zwei_dokumente_mit_embeddings(session)
+    assert embeddings_loeschen(session, dok1, None, "ollama") == 4
+    session.commit()
+    assert _bestand(session) == [(c2[0].id, "a"), (c2[0].id, "b")]

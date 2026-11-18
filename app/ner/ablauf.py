@@ -69,10 +69,35 @@ def _ner_vorhanden(session: Session, ex_id: int, dok_id: int, methode: NerMethod
         select(Entitaet.id).where(Entitaet.textextraktion_id == ex_id, Entitaet.methode == methode).limit(1)
     ).first() is not None:
         return True
+    geloescht = [
+        l.id for l in _schon_protokolliert(session, dok_id, f"loeschen:{schritt}", LaufStatus.ERFOLG)
+        if (l.roh_output or {}).get("extraktion_id") == ex_id
+    ]
+    grenze = max(geloescht, default=0)  # Laeufe vor dem letzten Loeschen zaehlen nicht mehr
     return any(
-        (l.roh_output or {}).get("extraktion_id") == ex_id
+        (l.roh_output or {}).get("extraktion_id") == ex_id and l.id > grenze
         for l in _schon_protokolliert(session, dok_id, schritt, LaufStatus.ERFOLG)
     )
+
+
+def entitaeten_loeschen(session: Session, extraktion_id: int, methoden: set[NerMethode], provider: str) -> int:
+    """Loescht Entitaeten der Extraktion fuer diese Methoden und protokolliert je Methode
+    einen Lauf `loeschen:ner:<methode>` (danach gilt das Ergebnis als fehlend). Nur flush."""
+    ex = session.get(TextExtraktion, extraktion_id)
+    if ex is None:
+        return 0
+    gesamt = 0
+    for methode in sorted(methoden, key=lambda m: m.value):
+        alte = session.exec(
+            select(Entitaet).where(Entitaet.textextraktion_id == extraktion_id, Entitaet.methode == methode)
+        ).all()
+        for e in alte:
+            session.delete(e)
+        session.add(Lauf(schritt=f"loeschen:ner:{methode.value}", dokument_id=ex.dokument_id, provider=provider,
+                         status=LaufStatus.ERFOLG, roh_output={"extraktion_id": extraktion_id, "geloescht": len(alte)}))
+        gesamt += len(alte)
+    session.flush()
+    return gesamt
 
 
 def ner_ausfuehren(
