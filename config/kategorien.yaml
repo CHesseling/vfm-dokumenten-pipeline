@@ -1,5 +1,7 @@
 # Kategorien für die automatische Klassifikation (vfm analyse --art klassifikation).
 # Eigene Kategorien einfach ergänzen: name + beschreibung (hilft dem Modell bei der Zuordnung).
+- name: Juristisches Schreiben
+  beschreibung: Gerichtsdokumente, Anklagen, Schriftsätze
 - name: Vertrag
   beschreibung: Verträge, Vereinbarungen, Vertragsentwürfe, Kündigungen
 - name: Rechnung
@@ -9,6 +11,6 @@
 - name: Protokoll
   beschreibung: Sitzungs- und Gesprächsprotokolle, Aktenvermerke, Transkripte
 - name: Privat
-  beschreibung: Private Unterlagen, Fotos und Notizen ohne geschäftlichen oder amtlichen Bezug
+  beschreibung: Tagebuch, Private Unterlagen, Fotos und Notizen ohne geschäftlichen oder amtlichen Bezug
 - name: Sonstiges
   beschreibung: Alles, was zu keiner der anderen Kategorien passt

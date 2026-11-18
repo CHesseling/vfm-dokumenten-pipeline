@@ -11,7 +11,7 @@ def test_kategorien_laden(tmp_path):
 
 def test_mitgelieferte_datei():
     namen = [k.name for k in lade_kategorien("config/kategorien.yaml")]
-    assert namen == ["Vertrag", "Rechnung", "Korrespondenz", "Protokoll", "Privat", "Sonstiges"]
+    assert namen == ["Juristisches Schreiben", "Vertrag", "Rechnung", "Korrespondenz", "Protokoll", "Privat", "Sonstiges"]
 
 
 def test_kategorien_fehlen(tmp_path):

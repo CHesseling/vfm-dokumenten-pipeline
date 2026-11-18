@@ -77,7 +77,7 @@ app/
   models/                SQLModel-Tabellen: dokument.py (Dokument, TextExtraktion, Chunk, Embedding,
                          Entitaet), auswertung.py (Analyse, Lauf), _typen.py (Spaltentypen)
   web/                   routes_{dokumente,suche,entitaeten,sql,status,upload}.py, vorlagen.py,
-                         templates/ (Jinja2, vanilla JS, Polling alle 2 s), static/ndr-logo.png
+                         templates/ (Jinja2, vanilla JS, Polling alle 2 s)
 
 alembic/versions/0001_basis.py   Basis-Schema inkl. pgvector, tsvector und Rolle vfm_leser
 config/kategorien.yaml           Kategorien fuer die Klassifikation
