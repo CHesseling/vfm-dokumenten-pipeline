@@ -429,7 +429,7 @@ def frage(
         konsole.print(tabelle)
 
 
-ANALYSE_ARTEN = ("zusammenfassung", "klassifikation", "bildbeschreibung", "alle")
+ANALYSE_ARTEN = ("zusammenfassung", "klassifikation", "klassifikation_clef", "bildbeschreibung", "alle")
 
 
 def _analyse_stufe(session: Session, s: Settings, arten, dokument: Optional[int] = None, nur_fehlende: bool = True):
@@ -464,7 +464,8 @@ def _analyse_zeile(bilanz) -> str:
 def analyse(
     ctx: typer.Context,
     art: str = typer.Option(
-        "alle", "--art", "-a", help="zusammenfassung, klassifikation, bildbeschreibung oder alle."
+        "alle", "--art", "-a",
+        help="zusammenfassung, klassifikation, klassifikation_clef (CLEF über Cortecs), bildbeschreibung oder alle.",
     ),
     dokument: Optional[int] = typer.Option(None, "--dokument", "-d", help="Nur dieses Dokument (ID)."),
     alle_neu: bool = typer.Option(False, "--alle-neu", help="Auch vorhandene Analysen neu berechnen."),
@@ -475,6 +476,9 @@ def analyse(
     s: Settings = ctx.obj
     if art not in ANALYSE_ARTEN:
         fehlerkonsole.print(f"[red]Unbekannte Art – erlaubt: {', '.join(ANALYSE_ARTEN)}[/red]")
+        raise typer.Exit(2)
+    if art == "klassifikation_clef" and not s.clef_aktiv():
+        fehlerkonsole.print("[red]CLEF braucht einen Cortecs-Schlüssel: CORTECS_API_KEY (oder CLASSIFY_API_KEY) in der .env setzen.[/red]")
         raise typer.Exit(2)
     arten = set(AnalyseArt) if art == "alle" else {AnalyseArt(art)}
     with session_aus(s) as session:

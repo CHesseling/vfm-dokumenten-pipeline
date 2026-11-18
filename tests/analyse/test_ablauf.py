@@ -219,3 +219,57 @@ def test_leerer_text_nur_einmal_protokolliert(session, s):
         analyse_ausfuehren(session, s, {AnalyseArt.ZUSAMMENFASSUNG}, nur_fehlende=False)
     laeufe = session.exec(select(Lauf).where(Lauf.status == LaufStatus.UEBERSPRUNGEN)).all()
     assert len(laeufe) == 1
+
+
+class ClefFake:
+    def __init__(self, kategorie="Vertrag"):
+        self.aufrufe = []
+        self.kategorie = kategorie
+
+    def klassifiziere(self, text, frage, kategorien):
+        from app.providers.decisions import ClefAntwort
+
+        self.aufrufe.append((text, frage, [k.name for k in kategorien]))
+        return ClefAntwort(self.kategorie, 0.8, {"Vertrag": 0.8, "Sonstiges": 0.2})
+
+
+def test_clef_klassifikation_gespeichert(session, s, monkeypatch):
+    import app.analyse.ablauf as ablauf
+
+    s.cortecs_api_key = "ck"
+    fake = ClefFake()
+    monkeypatch.setattr(ablauf, "classify_client", lambda s: fake)
+    _dok(session, "a.txt", "z" * 20000, "1")
+    bilanz = analyse_ausfuehren(session, s, {AnalyseArt.KLASSIFIKATION_CLEF})
+    assert bilanz.erzeugt == 1
+    analyse = session.exec(select(Analyse)).one()
+    assert analyse.art == AnalyseArt.KLASSIFIKATION_CLEF and analyse.modell == "clef-flash:latest"
+    assert analyse.ergebnis == {"kategorie": "Vertrag", "sicherheit": 0.8,
+                                "wahrscheinlichkeiten": {"Vertrag": 0.8, "Sonstiges": 0.2}}
+    text, frage, namen = fake.aufrufe[0]
+    assert len(text) == 12000 and frage.startswith("Ordne das Dokument") and namen == ["Vertrag", "Sonstiges"]
+    lauf = session.exec(select(Lauf).where(Lauf.schritt == "analyse:klassifikation_clef")).one()
+    assert lauf.status == LaufStatus.ERFOLG and lauf.provider == "cortecs" and lauf.modell == "clef-flash:latest"
+
+
+def test_clef_unbekannte_kategorie_wird_sonstiges(session, s, monkeypatch):
+    import app.analyse.ablauf as ablauf
+
+    s.cortecs_api_key = "ck"
+    monkeypatch.setattr(ablauf, "classify_client", lambda s: ClefFake("Quatsch"))
+    _dok(session, "a.txt", "Text", "1")
+    analyse_ausfuehren(session, s, {AnalyseArt.KLASSIFIKATION_CLEF})
+    e = session.exec(select(Analyse)).one().ergebnis
+    assert e["kategorie"] == "Sonstiges" and e["roh_kategorie"] == "Quatsch"
+
+
+@respx.mock
+def test_clef_ohne_schluessel_still_aus(session, s, monkeypatch):
+    import app.analyse.ablauf as ablauf
+
+    monkeypatch.setattr(ablauf, "classify_client", lambda s: pytest.fail("CLEF ist aus"))
+    respx.post(CHAT).mock(return_value=_antwort("Zusammenfassung."))
+    _dok(session, "a.txt", "Text", "1")
+    bilanz = analyse_ausfuehren(session, s, {AnalyseArt.ZUSAMMENFASSUNG, AnalyseArt.KLASSIFIKATION_CLEF})
+    assert bilanz.erzeugt == 1 and bilanz.fehler == 0
+    assert session.exec(select(Lauf).where(Lauf.schritt == "analyse:klassifikation_clef")).all() == []

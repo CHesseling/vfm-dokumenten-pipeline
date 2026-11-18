@@ -13,7 +13,7 @@ from app.enums import AnalyseArt, DokumentTyp, LaufStatus
 from app.ingest.bild import bild_als_jpeg
 from app.ingest.speichern import lesen_datei
 from app.models import Analyse, Dokument, Lauf, TextExtraktion
-from app.providers.factory import chat_client, vision_client
+from app.providers.factory import chat_client, classify_client, vision_client
 from app.providers.llm_client import LLMClient, bild_nachricht
 
 logger = logging.getLogger(__name__)
@@ -111,6 +111,21 @@ def klassifizieren(llm: LLMClient, text: str, kategorien: list[Kategorie], frage
     return ergebnis
 
 
+def clef_klassifizieren(client, text: str, kategorien: list[Kategorie], frage: str = STANDARD_FRAGE) -> dict:
+    """Gleicher Text (gekuerzt wie beim LLM), gleiche Frage, gleiche Kategorien."""
+    antwort = client.klassifiziere(text[:MAX_ZEICHEN], frage, kategorien)
+    namen = {k.name.casefold(): k.name for k in kategorien}
+    gefunden = namen.get(antwort.kategorie.strip().casefold())
+    ergebnis = {
+        "kategorie": gefunden or FALLBACK_KATEGORIE,
+        "sicherheit": min(1.0, max(0.0, antwort.sicherheit)),
+        "wahrscheinlichkeiten": antwort.wahrscheinlichkeiten,
+    }
+    if gefunden is None:
+        ergebnis["roh_kategorie"] = antwort.kategorie
+    return ergebnis
+
+
 def bild_beschreiben(vision: LLMClient, bild_jpeg: bytes) -> dict:
     return {"text": vision.chat_text([bild_nachricht(BILD_PROMPT, [(bild_jpeg, "image/jpeg")])])}
 
@@ -130,7 +145,7 @@ def analyse_ausfuehren(
         abfrage = abfrage.where(Dokument.id == dokument_id)
     dokumente = session.exec(abfrage).all()
     bilanz = AnalyseBilanz()
-    chat = vision = None
+    chat = vision = classify = None
     for nr, dok in enumerate(dokumente, 1):
         if soll_abbrechen is not None and soll_abbrechen():
             break
@@ -144,12 +159,17 @@ def analyse_ausfuehren(
         text = aktiv.text if aktiv else ""
         for art in sorted(arten, key=lambda a: a.value):
             schritt = f"analyse:{art.value}"
+            provider = s.provider
+            if art == AnalyseArt.KLASSIFIKATION_CLEF and not s.clef_aktiv():
+                continue  # CLEF ist optional: ohne Cortecs-Schluessel still aus
             if art == AnalyseArt.BILDBESCHREIBUNG:
                 if dok.typ != DokumentTyp.BILD:
                     continue
                 modell = s.vision_effektiv()[1]
             else:
                 modell = s.chat_model
+                if art == AnalyseArt.KLASSIFIKATION_CLEF:
+                    modell, provider = s.classify_model, "cortecs"
                 if not text.strip():
                     if session.exec(
                         select(Lauf.id).where(
@@ -158,7 +178,7 @@ def analyse_ausfuehren(
                         ).limit(1)
                     ).first() is not None:
                         continue  # leerer Text wird nur einmal protokolliert
-                    session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
+                    session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=provider, modell=modell,
                                      status=LaufStatus.UEBERSPRUNGEN, fehler="leerer Text"))
                     session.commit()
                     bilanz.uebersprungen += 1
@@ -173,6 +193,10 @@ def analyse_ausfuehren(
                 if art == AnalyseArt.ZUSAMMENFASSUNG:
                     chat = chat or chat_client(s)
                     ergebnis = zusammenfassen(chat, text)
+                elif art == AnalyseArt.KLASSIFIKATION_CLEF:
+                    classify = classify or classify_client(s)
+                    vorgabe = lade_klassifikation(s.kategorien_pfad)
+                    ergebnis = clef_klassifizieren(classify, text, vorgabe.kategorien, vorgabe.frage)
                 elif art == AnalyseArt.KLASSIFIKATION:
                     chat = chat or chat_client(s)
                     vorgabe = lade_klassifikation(s.kategorien_pfad)
@@ -186,14 +210,14 @@ def analyse_ausfuehren(
                     session.delete(alt)
                 session.flush()
                 session.add(Analyse(dokument_id=dok_id, art=art, modell=modell, ergebnis=ergebnis))
-                session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
+                session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=provider, modell=modell,
                                  dauer_ms=int((time.monotonic() - start) * 1000), status=LaufStatus.ERFOLG))
                 session.commit()
                 bilanz.erzeugt += 1
             except Exception as e:  # noqa: BLE001 - eine Art darf die anderen nicht stoppen
                 logger.warning("Analyse %s fuer Dokument %s fehlgeschlagen: %s", art.value, dok_id, e)
                 session.rollback()
-                session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
+                session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=provider, modell=modell,
                                  dauer_ms=int((time.monotonic() - start) * 1000), status=LaufStatus.FEHLER,
                                  fehler=f"{type(e).__name__}: {e}"[:FEHLER_MAX]))
                 session.commit()

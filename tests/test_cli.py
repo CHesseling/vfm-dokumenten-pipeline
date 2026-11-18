@@ -247,6 +247,11 @@ def test_vfm_ner_reicht_labels_und_schwelle_durch(cli_settings, monkeypatch):
     assert erhalten["nur_fehlende"] is True
 
 
+def test_vfm_analyse_clef_ohne_schluessel(cli_settings):
+    r = runner.invoke(cli.app, ["analyse", "--art", "klassifikation_clef"], obj=cli_settings)
+    assert r.exit_code == 2 and "CORTECS_API_KEY" in r.output
+
+
 def test_suche_cli_volltext_und_embed(session, cli_settings):
     from tests.embed.test_index import chunks_anlegen
 

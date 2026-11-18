@@ -28,6 +28,7 @@ class NerMethode(str, Enum):
 class AnalyseArt(str, Enum):
     ZUSAMMENFASSUNG = "zusammenfassung"
     KLASSIFIKATION = "klassifikation"
+    KLASSIFIKATION_CLEF = "klassifikation_clef"
     BILDBESCHREIBUNG = "bildbeschreibung"
 
 
