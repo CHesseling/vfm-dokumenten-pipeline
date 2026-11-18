@@ -123,6 +123,14 @@ def test_klassifizieren_kuerzt_text():
 
 
 @respx.mock
+def test_klassifizieren_nutzt_frage():
+    route = respx.post(CHAT).mock(return_value=_antwort(json.dumps(
+        {"kategorie": "Vertrag", "begruendung": "b", "sicherheit": 1.0})))
+    klassifizieren(_llm(), "Text", KATS, frage="Was für ein Schriftstück ist das?")
+    assert "Was für ein Schriftstück ist das?" in json.loads(route.calls[0].request.content)["messages"][0]["content"]
+
+
+@respx.mock
 def test_bild_beschreiben():
     route = respx.post(CHAT).mock(return_value=_antwort("Ein Hund im Park."))
     assert bild_beschreiben(_llm(), b"jpegdaten") == {"text": "Ein Hund im Park."}

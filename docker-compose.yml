@@ -40,6 +40,8 @@ services:
     volumes:
       - daten:/data
       - ./material:/material
+      # Frage und Kategorien der Klassifikation aenderbar, ohne das Image neu zu bauen
+      - ./config:/app/config:ro
 
   # Optional: Ollama im Container statt auf dem Host
   # (docker compose --profile ollama up -d)

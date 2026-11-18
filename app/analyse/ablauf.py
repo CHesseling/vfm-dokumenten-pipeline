@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from app.analyse.kategorien import Kategorie, lade_kategorien
+from app.analyse.kategorien import STANDARD_FRAGE, Kategorie, lade_klassifikation
 from app.config import Settings
 from app.enums import AnalyseArt, DokumentTyp, LaufStatus
 from app.ingest.bild import bild_als_jpeg
@@ -90,10 +90,10 @@ def zusammenfassen(llm: LLMClient, text: str) -> dict:
     return ergebnis
 
 
-def klassifizieren(llm: LLMClient, text: str, kategorien: list[Kategorie]) -> dict:
+def klassifizieren(llm: LLMClient, text: str, kategorien: list[Kategorie], frage: str = STANDARD_FRAGE) -> dict:
     liste = "\n".join(f"- {k.name}: {k.beschreibung}" for k in kategorien)
     system = (
-        "Ordne das Dokument genau einer der folgenden Kategorien zu:\n"
+        f"{frage}\n"
         f"{liste}\n\n"
         "Antworte als JSON mit den Feldern kategorie (exakt einer der Namen oben), "
         "begruendung (ein Satz auf Deutsch) und sicherheit (Zahl von 0 bis 1)."
@@ -175,7 +175,8 @@ def analyse_ausfuehren(
                     ergebnis = zusammenfassen(chat, text)
                 elif art == AnalyseArt.KLASSIFIKATION:
                     chat = chat or chat_client(s)
-                    ergebnis = klassifizieren(chat, text, lade_kategorien(s.kategorien_pfad))
+                    vorgabe = lade_klassifikation(s.kategorien_pfad)
+                    ergebnis = klassifizieren(chat, text, vorgabe.kategorien, vorgabe.frage)
                 else:
                     vision = vision or vision_client(s)
                     ergebnis = bild_beschreiben(vision, bild_als_jpeg(lesen_datei(dok, s.daten_pfad)))

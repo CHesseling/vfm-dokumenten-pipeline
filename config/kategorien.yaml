@@ -1,16 +1,19 @@
-# Kategorien für die automatische Klassifikation (vfm analyse --art klassifikation).
+# Frage und Kategorien für die Klassifikation (vfm analyse --art klassifikation bzw. klassifikation_clef).
 # Eigene Kategorien einfach ergänzen: name + beschreibung (hilft dem Modell bei der Zuordnung).
-- name: Juristisches Schreiben
-  beschreibung: Gerichtsdokumente, Anklagen, Schriftsätze
-- name: Vertrag
-  beschreibung: Verträge, Vereinbarungen, Vertragsentwürfe, Kündigungen
-- name: Rechnung
-  beschreibung: Rechnungen, Quittungen, Mahnungen, Kontoauszüge, Zahlungsbelege
-- name: Korrespondenz
-  beschreibung: Briefe, E-Mails, Anfragen und Antworten zwischen Personen oder Organisationen
-- name: Protokoll
-  beschreibung: Sitzungs- und Gesprächsprotokolle, Aktenvermerke, Transkripte
-- name: Privat
-  beschreibung: Tagebuch, Private Unterlagen, Fotos und Notizen ohne geschäftlichen oder amtlichen Bezug
-- name: Sonstiges
-  beschreibung: Alles, was zu keiner der anderen Kategorien passt
+# Die Frage gilt fuer beide Verfahren (LLM und CLEF), damit der Vergleich fair ist.
+frage: "Ordne das Dokument genau einer der folgenden Kategorien zu:"
+kategorien:
+  - name: Juristisches Schreiben
+    beschreibung: Gerichtsdokumente, Anklagen, Schriftsätze
+  - name: Vertrag
+    beschreibung: Verträge, Vereinbarungen, Vertragsentwürfe, Kündigungen
+  - name: Rechnung
+    beschreibung: Rechnungen, Quittungen, Mahnungen, Kontoauszüge, Zahlungsbelege
+  - name: Korrespondenz
+    beschreibung: Briefe, E-Mails, Anfragen und Antworten zwischen Personen oder Organisationen
+  - name: Protokoll
+    beschreibung: Sitzungs- und Gesprächsprotokolle, Aktenvermerke, Transkripte
+  - name: Privat
+    beschreibung: Tagebuch, Private Unterlagen, Fotos und Notizen ohne geschäftlichen oder amtlichen Bezug
+  - name: Sonstiges
+    beschreibung: Alles, was zu keiner der anderen Kategorien passt
