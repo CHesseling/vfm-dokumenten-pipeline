@@ -232,7 +232,14 @@ def ner(
         help="gliner, muster, llm oder alle (Standard: gliner + muster; das LLM ist langsamer und wird nur auf Wunsch genutzt).",
     ),
     dokument: Optional[int] = typer.Option(None, "--dokument", "-d", help="Nur dieses Dokument (ID)."),
-    labels: Optional[str] = typer.Option(None, "--labels", help="Kommagetrennte Labels, z. B. person,iban."),
+    labels: Optional[str] = typer.Option(
+        None, "--labels",
+        help="Kommagetrennte Labels, auch eigene; optional mit englischem Begriff für GliNER, "
+        "z. B. \"person, aktenzeichen=file number\".",
+    ),
+    schwelle: Optional[float] = typer.Option(
+        None, "--schwelle", help="Mindest-Konfidenz für GliNER, 0.05–0.95 (Standard aus GLINER_SCHWELLE)."
+    ),
     vergleich: bool = typer.Option(False, "--vergleich", help="Methoden nebeneinander (braucht --dokument)."),
     alle_neu: bool = typer.Option(False, "--alle-neu", help="Auch vorhandene Ergebnisse neu berechnen."),
 ) -> None:
@@ -242,7 +249,7 @@ def ner(
     from app.enums import NerMethode
     from app.models import TextExtraktion
     from app.ner.ablauf import ner_ausfuehren, vergleich as ner_vergleich
-    from app.ner.treffer import LABELS
+    from app.ner.labels import labels_parsen, schwelle_pruefen
 
     s: Settings = ctx.obj
     if methode == "standard":
@@ -257,15 +264,13 @@ def ner(
     if vergleich and dokument is None:
         fehlerkonsole.print("[red]--vergleich braucht --dokument ID[/red]")
         raise typer.Exit(2)
-    label_liste = None
-    if labels:
-        label_liste = [l.strip() for l in labels.split(",") if l.strip()]
-        unbekannt = [l for l in label_liste if l not in LABELS]
-        if unbekannt:
-            fehlerkonsole.print(
-                f"[red]Unbekannte Labels: {escape(', '.join(unbekannt))} – erlaubt: {escape(', '.join(LABELS))}[/red]"
-            )
-            raise typer.Exit(2)
+    try:
+        label_liste = labels_parsen(labels)
+        if schwelle is not None:
+            schwelle_pruefen(schwelle)
+    except ValueError as fehler:
+        fehlerkonsole.print(f"[red]{escape(str(fehler))}[/red]")
+        raise typer.Exit(2)
     with session_aus(s) as session:
         with Progress(
             TextColumn("{task.description}"), BarColumn(), TextColumn("{task.completed}/{task.total}"),
@@ -277,7 +282,7 @@ def ner(
                 fortschritt.update(aufgabe, completed=nr - 1, total=gesamt, description=escape(name))
 
             bilanz = ner_ausfuehren(
-                session, s, methoden, dokument_id=dokument, labels=label_liste, bei_dokument=bei_dokument,
+                session, s, methoden, dokument_id=dokument, labels=label_liste, schwelle=schwelle, bei_dokument=bei_dokument,
                 nur_fehlende=not alle_neu,
             )
         konsole.print(

@@ -4,7 +4,8 @@ import re
 
 from pydantic import BaseModel
 
-from app.ner.treffer import LABELS, Treffer
+from app.ner.labels import LabelWunsch, standard_labels
+from app.ner.treffer import Treffer
 from app.providers.llm_client import LLMClient
 
 FENSTER_ZEICHEN = 6000
@@ -44,8 +45,8 @@ def _fenster(text: str) -> list[str]:
     return teile
 
 
-def _nachrichten(teil: str, labels: list[str]) -> list[dict]:
-    liste = "\n".join(f"- {l}: {ERKLAERUNG.get(l, l)}" for l in labels)
+def _nachrichten(teil: str, labels: list[LabelWunsch]) -> list[dict]:
+    liste = "\n".join(f"- {l.name}: {ERKLAERUNG.get(l.name) or l.begriff or l.name}" for l in labels)
     return [
         {
             "role": "system",
@@ -69,18 +70,19 @@ def _muster(wert: str) -> re.Pattern:
 
 
 def llm_ner(
-    client: LLMClient, text: str, labels: list[str] | None = None, statistik: dict | None = None
+    client: LLMClient, text: str, labels: list[LabelWunsch] | None = None, statistik: dict | None = None
 ) -> list[Treffer]:
     """Treffer mit Offsets (alle Vorkommen). `statistik["verworfen"]` zaehlt
     erfundene (nicht im Text vorkommende) bzw. label-fremde Antworten."""
-    labels = list(labels or LABELS)
+    labels = list(labels or standard_labels())
+    namen = {l.name for l in labels}
     gefragt: set[tuple[str, str]] = set()
     verworfen = 0
     for teil in _fenster(text):
         antwort = client.chat_json(_nachrichten(teil, labels), LlmEntitaeten)
         for e in antwort.entitaeten:
             wert = e.text.strip()
-            if e.label not in labels or not wert or wert not in text:
+            if e.label not in namen or not wert or wert not in text:
                 verworfen += 1
                 continue
             gefragt.add((e.label, wert))

@@ -9,6 +9,7 @@ wird ersatzweise per `finditer` im Fenster gesucht.
 import re
 import threading
 
+from app.ner.labels import LabelWunsch, ist_bekannt
 from app.ner.treffer import Treffer
 
 # internes Label -> Modell-Label (Modell ist englisch trainiert, siehe Spike)
@@ -21,6 +22,20 @@ GLINER_LABELS = {
 }
 
 FENSTER_ZEICHEN = 1200
+
+
+def modell_labels(labels: list[LabelWunsch] | None) -> dict[str, str]:
+    """Modell-Begriff -> internes Label. Begriff aus der Eingabe, sonst GLINER_LABELS;
+    bekannte Labels ohne GliNER-Begriff (iban, telefon, email) werden uebersprungen,
+    eigene Labels ohne Begriff gehen mit ihrem Namen ans Modell. Bei Kollision gewinnt das erste."""
+    if labels is None:
+        return {begriff: name for name, begriff in GLINER_LABELS.items()}
+    rueck: dict[str, str] = {}
+    for l in labels:
+        begriff = l.begriff or GLINER_LABELS.get(l.name) or (None if ist_bekannt(l.name) else l.name)
+        if begriff is not None:
+            rueck.setdefault(begriff, l.name)
+    return rueck
 UEBERLAPPUNG = 100
 
 
@@ -69,11 +84,10 @@ class GlinerNer:
         self.modell = modell
         self.schwelle = schwelle
 
-    def finde(self, text: str, labels: list[str] | None = None) -> list[Treffer]:
-        intern = [l for l in (labels or list(GLINER_LABELS)) if l in GLINER_LABELS]
-        if not intern or not text.strip():
+    def finde(self, text: str, labels: list[LabelWunsch] | None = None) -> list[Treffer]:
+        rueck = modell_labels(labels)
+        if not rueck or not text.strip():
             return []
-        rueck = {GLINER_LABELS[l]: l for l in intern}
         modell = _modell_geladen(self.modell)
         gesehen: set[tuple[str, int, int]] = set()
         treffer: list[Treffer] = []

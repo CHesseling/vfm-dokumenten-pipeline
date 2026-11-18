@@ -1,6 +1,7 @@
 import app.web.routes_entitaeten as re_
 from app.enums import DokumentTyp, ExtraktionsMethode, NerMethode
 from app.models import Dokument, Entitaet, TextExtraktion
+from app.ner.labels import LabelWunsch, labels_parsen
 from app.providers.llm_client import ProviderFehler
 from app.web.routes_entitaeten import markierungen
 
@@ -102,6 +103,6 @@ def test_gleiche_iban_ueber_methoden_eine_zeile(client, session, monkeypatch):
     from tests.conftest import TEST_DATABASE_URL
     s = Settings(database_url=TEST_DATABASE_URL, chat_base_url="http://c/v1", chat_model="m",
                  embed_base_url="http://e/v1", embed_model="e", _env_file=None)
-    ablauf.ner_ausfuehren(session, s, {NerMethode.MUSTER, NerMethode.LLM}, labels=["iban"])
+    ablauf.ner_ausfuehren(session, s, {NerMethode.MUSTER, NerMethode.LLM}, labels=labels_parsen("iban"))
     html = client.get("/entitaeten?label=iban").text
     assert html.count("<tr><td>") == 1 and "<td>2</td>" in html

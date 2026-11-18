@@ -12,6 +12,7 @@ from app.enums import LaufStatus, NerMethode
 from app.models import Dokument, Entitaet, Lauf, TextExtraktion
 from app.ner.gliner import GlinerNer
 from app.ner.llm_ner import llm_ner
+from app.ner.labels import LabelWunsch, labels_als_text
 from app.ner.muster import finde_muster, normalisiere
 from app.ner.treffer import LABELS, Treffer
 from app.providers.factory import chat_client
@@ -40,11 +41,13 @@ def _normal(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().casefold()
 
 
-def _finde(methode: NerMethode, s: Settings, text: str, labels: list[str], statistik: dict) -> list[Treffer]:
+def _finde(methode: NerMethode, s: Settings, text: str, labels: list[LabelWunsch] | None, schwelle: float,
+           statistik: dict) -> list[Treffer]:
     if methode == NerMethode.MUSTER:
-        return [t for t in finde_muster(text) if t.label in labels]
+        namen = set(LABELS) if labels is None else {l.name for l in labels}
+        return [t for t in finde_muster(text) if t.label in namen]
     if methode == NerMethode.GLINER:
-        treffer = GlinerNer(s.gliner_model).finde(text, labels)
+        treffer = GlinerNer(s.gliner_model, schwelle).finde(text, labels)
         return [replace(t, normalisiert=normalisiere(t.label, t.text)) for t in treffer]
     treffer = llm_ner(chat_client(s), text, labels, statistik)
     return [replace(t, normalisiert=normalisiere(t.label, t.text)) for t in treffer]
@@ -77,13 +80,16 @@ def ner_ausfuehren(
     s: Settings,
     methoden: set[NerMethode],
     dokument_id: int | None = None,
-    labels: list[str] | None = None,
+    labels: list[LabelWunsch] | None = None,
+    schwelle: float | None = None,
     bei_dokument=None,
     soll_abbrechen=None,
     nur_fehlende: bool = True,
 ) -> NerBilanz:
     """nur_fehlende=True ueberspringt (Extraktion, Methode)-Paare mit vorhandenem Ergebnis."""
-    labels = list(labels or LABELS)
+    if schwelle is None:
+        schwelle = s.gliner_schwelle
+    parameter = {"labels": labels_als_text(labels)}
     abfrage = select(TextExtraktion).where(TextExtraktion.ist_aktiv.is_(True))
     if dokument_id is not None:
         abfrage = abfrage.where(TextExtraktion.dokument_id == dokument_id)
@@ -114,7 +120,7 @@ def ner_ausfuehren(
             start = time.monotonic()
             statistik: dict = {}
             try:
-                treffer = _finde(methode, s, text, labels, statistik)
+                treffer = _finde(methode, s, text, labels, schwelle, statistik)
                 for alt in session.exec(
                     select(Entitaet).where(Entitaet.textextraktion_id == ex_id, Entitaet.methode == methode)
                 ).all():
@@ -125,7 +131,8 @@ def ner_ausfuehren(
                                          normalisiert=t.normalisiert, start=t.start, ende=t.ende, score=t.score))
                 session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
                                  dauer_ms=int((time.monotonic() - start) * 1000), status=LaufStatus.ERFOLG,
-                                 roh_output={**statistik, "extraktion_id": ex_id}))
+                                 roh_output={**statistik, "extraktion_id": ex_id, **parameter,
+                                             **({"schwelle": schwelle} if methode == NerMethode.GLINER else {})}))
                 session.commit()
                 bilanz.entitaeten += len(treffer)
             except Exception as e:  # noqa: BLE001 - eine Methode darf die anderen nicht stoppen

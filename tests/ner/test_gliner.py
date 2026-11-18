@@ -4,6 +4,7 @@ import pytest
 
 import app.ner.gliner as gl
 from app.ner.gliner import GLINER_LABELS, GlinerNer
+from app.ner.labels import LabelWunsch, labels_parsen
 
 
 class FakeModell:
@@ -51,12 +52,12 @@ def test_keine_duplikate_aus_ueberlappung(fake):
 
 
 def test_labels_werden_uebersetzt(fake):
-    GlinerNer("m").finde("Müller", ["organisation", "ort", "iban"])
+    GlinerNer("m").finde("Müller", labels_parsen("organisation, ort, iban"))
     assert fake.aufrufe[0][1] == ["company", "location"]  # iban ist kein GliNER-Label
 
 
 def test_ergebnis_label_intern(fake):
-    t = GlinerNer("m").finde("Herr Müller kam.", ["person"])[0]
+    t = GlinerNer("m").finde("Herr Müller kam.", [LabelWunsch("person")])[0]
     assert t.label == "person" and t.score == 0.9
 
 
@@ -66,7 +67,7 @@ def test_schwelle_wird_uebergeben(fake):
 
 
 def test_keine_gliner_labels_kein_aufruf(fake):
-    assert GlinerNer("m").finde("Müller", ["iban"]) == []
+    assert GlinerNer("m").finde("Müller", [LabelWunsch("iban")]) == []
     assert fake.aufrufe == []
 
 
@@ -92,5 +93,32 @@ def test_abgeschnittener_span_am_fensterrand(monkeypatch):
 
     monkeypatch.setattr(gl, "_MODELLE", {})
     monkeypatch.setattr(gl, "_lade_modell", lambda name: Fake())
-    treffer = GlinerNer("m").finde(text, ["organisation"])
+    treffer = GlinerNer("m").finde(text, [LabelWunsch("organisation")])
     assert len(treffer) == 1 and treffer[0].start == pos
+
+
+def test_eigenes_label_mit_begriff(fake):
+    GlinerNer("m").finde("Müller", [LabelWunsch("aktenzeichen", "file number")])
+    assert fake.aufrufe[0][1] == ["file number"]
+
+
+def test_eigenes_label_ohne_begriff_geht_mit_namen(fake):
+    GlinerNer("m").finde("Müller", [LabelWunsch("behörde")])
+    assert fake.aufrufe[0][1] == ["behörde"]
+
+
+def test_bekanntes_label_ohne_gliner_begriff_uebersprungen(fake):
+    assert GlinerNer("m").finde("Müller", [LabelWunsch("iban")]) == []
+    assert fake.aufrufe == []
+    GlinerNer("m").finde("Müller", [LabelWunsch("iban", "bank account number")])
+    assert fake.aufrufe[0][1] == ["bank account number"]
+
+
+def test_treffer_bekommt_internes_eigenes_label(fake):
+    class Fake:
+        def extract_entities(self, teil, labels, **k):
+            return {"entities": {"file number": [{"text": "AZ 1", "confidence": 0.8, "start": 0, "end": 4}]}}
+
+    gl._MODELLE["x"] = Fake()
+    t = GlinerNer("x").finde("AZ 1 liegt vor.", [LabelWunsch("aktenzeichen", "file number")])
+    assert [(x.label, x.text) for x in t] == [("aktenzeichen", "AZ 1")]

@@ -218,6 +218,31 @@ def test_vfm_ner_unbekannte_methode(cli_settings):
     assert r.exit_code == 2
 
 
+@pytest.mark.parametrize("args", [["--labels", "a=b=c"], ["--schwelle", "1.5"]])
+def test_vfm_ner_parameter_ungueltig(cli_settings, args):
+    r = runner.invoke(cli.app, ["ner", *args], obj=cli_settings)
+    assert r.exit_code == 2
+
+
+def test_vfm_ner_reicht_labels_und_schwelle_durch(cli_settings, monkeypatch):
+    import app.ner.ablauf as ablauf
+    from app.ner.ablauf import NerBilanz
+    from app.ner.labels import labels_parsen
+
+    erhalten = {}
+
+    def fake(session, s, methoden, **kw):
+        erhalten.update(kw)
+        return NerBilanz()
+
+    monkeypatch.setattr(ablauf, "ner_ausfuehren", fake)
+    r = runner.invoke(cli.app, ["ner", "--labels", "person, aktenzeichen=file number", "--schwelle", "0.3"],
+                      obj=cli_settings)
+    assert r.exit_code == 0, r.output
+    assert erhalten["labels"] == labels_parsen("person, aktenzeichen=file number")
+    assert erhalten["schwelle"] == 0.3
+
+
 def test_suche_cli_volltext_und_embed(session, cli_settings):
     from tests.embed.test_index import chunks_anlegen
 
