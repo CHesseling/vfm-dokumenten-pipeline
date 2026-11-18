@@ -1,0 +1,1 @@
+{% if e %}{{ e.kategorie }} <span class="hinweis">({{ (e.sicherheit * 100) | round | int }} %{% if e.dauer_ms is not none %}, {{ e.dauer_ms }} ms{% endif %})</span>{% else %}–{% endif %}

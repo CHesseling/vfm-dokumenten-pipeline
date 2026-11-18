@@ -128,6 +128,20 @@ Hinweis fuer SQL: Die Tabelle `analyse` muss in Anfuehrungszeichen stehen (`"ana
 In der Weboberflaeche gibt es dieselben Funktionen: Dokumente (mit Detailseite
 und Methodenvergleich), Suche, Entitaeten, SQL, Status, Upload.
 
+## Klassifikation: LLM und CLEF im Vergleich
+
+Neben dem LLM gibt es einen zweiten Klassifikator: CLEF (Cloudflare `clef-flash`)
+ueber die Decisions-API von Cortecs. Er liefert je Kategorie eine Wahrscheinlichkeit.
+Er ist optional und laeuft nur mit einem Cortecs-Schluessel in der `.env`
+(`CORTECS_API_KEY=...`), auch wenn alles andere lokal mit Ollama laeuft.
+
+Frage und Kategorien stehen fuer beide Verfahren in `config/kategorien.yaml`.
+`vfm analyse --art klassifikation_clef` rechnet CLEF, `vfm klassifikation` zeigt
+LLM und CLEF nebeneinander (Kategorie, Sicherheit, Dauer); in der Oberflaeche die
+Seite "Klassifikation". Optional ueberschreibbar: `CLASSIFY_MODEL`
+(Standard `clef-flash:latest`), `CLASSIFY_BASE_URL`, `CLASSIFY_API_KEY`.
+Die Decisions-API ist bei Cortecs noch Beta.
+
 ## Agenten anbinden (z. B. Hermes)
 
 Ein Agent wie Hermes nutzt die Pipeline ueber die HTTP-Schnittstelle `/api`:

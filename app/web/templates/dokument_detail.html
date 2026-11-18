@@ -156,13 +156,25 @@
 <h3>Zusammenfassung</h3>
 <p>{{ analysen.zusammenfassung.text }}</p>
 {% endif %}
-{% if analysen.klassifikation %}
-<h3>Klassifikation</h3>
+{% if klassifikation %}
+<h3>Klassifikation: LLM und CLEF</h3>
 <table>
-  <tr><th>Kategorie</th><td>{{ analysen.klassifikation.kategorie }}</td></tr>
-  <tr><th>Sicherheit</th><td>{{ (analysen.klassifikation.sicherheit * 100) | round | int }} %</td></tr>
-  <tr><th>Begründung</th><td>{{ analysen.klassifikation.begruendung }}</td></tr>
+  <thead><tr><th>Verfahren</th><th>Modell</th><th>Kategorie</th><th>Sicherheit</th><th>Dauer</th></tr></thead>
+  <tbody>
+    {% for name, e in [("LLM", klassifikation.llm), ("CLEF", klassifikation.clef)] %}
+    <tr><td>{{ name }}</td>
+      {% if e %}<td>{{ e.modell }}</td><td>{{ e.kategorie }}</td><td>{{ (e.sicherheit * 100) | round | int }} %</td>
+      <td>{{ e.dauer_ms ~ " ms" if e.dauer_ms is not none else "–" }}</td>
+      {% else %}<td colspan="4">–</td>{% endif %}</tr>
+    {% endfor %}
+  </tbody>
 </table>
+{% if klassifikation.llm and klassifikation.llm.begruendung %}<p><strong>Begründung (LLM):</strong> {{ klassifikation.llm.begruendung }}</p>{% endif %}
+{% if klassifikation.clef and klassifikation.clef.wahrscheinlichkeiten %}
+<p><strong>Wahrscheinlichkeiten (CLEF):</strong>
+{% for name, p in klassifikation.clef.wahrscheinlichkeiten %}{{ name }}: {{ (p * 100) | round | int }} %{% if not loop.last %} · {% endif %}{% endfor %}</p>
+{% endif %}
+<p><a href="/klassifikation">Alle Dokumente im Vergleich</a></p>
 {% endif %}
 {% if analysen.bildbeschreibung %}
 <h3>Bildbeschreibung</h3>

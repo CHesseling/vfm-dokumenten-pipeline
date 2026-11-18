@@ -39,6 +39,7 @@ app/
     embeddings.py          EmbeddingClient (OpenAI-kompatibel, Batches)
     rerank.py              LokalerReranker (CrossEncoder) / ApiReranker
     transcribe.py          LokalerTranskribierer (faster-whisper) / ApiTranskribierer
+    decisions.py           DecisionsClient (Cortecs /decisions, CLEF): Wahrscheinlichkeit je Kategorie
     check.py               pruefe_rollen: Grundlage von "vfm check" und Status-Seite
     url.py                 ohne_zugangsdaten(): userinfo aus URLs entfernen
 
@@ -68,15 +69,16 @@ app/
     rag.py                 antwort_erzeugen: Antwort mit Fussnoten [n]
     treffer.py             Treffer-Datentypen
 
-  analyse/               LLM-Analysen (Zusammenfassung, Klassifikation, Bildbeschreibung)
-    ablauf.py              analyse_starten; hierarchische Zusammenfassung (max. 3 Ebenen)
-    kategorien.py          liest config/kategorien.yaml
+  analyse/               LLM-Analysen (Zusammenfassung, Klassifikation, Bildbeschreibung) + CLEF
+    ablauf.py              analyse_ausfuehren; hierarchische Zusammenfassung (max. 3 Ebenen)
+    kategorien.py          liest config/kategorien.yaml ({frage, kategorien}; alte Listenform ok)
+    vergleich.py           LLM- und CLEF-Klassifikation je Dokument nebeneinander (GUI/CLI)
 
   sql/                   abfrage.py (read-only SQL ausfuehren), beispiele.py (BEISPIELE fuer GUI/Doku)
   api/routes.py          /api/suche, /api/dokumente/{id}, /api/entitaeten, /api/frage (Bearer-Token optional)
   models/                SQLModel-Tabellen: dokument.py (Dokument, TextExtraktion, Chunk, Embedding,
                          Entitaet), auswertung.py (Analyse, Lauf), _typen.py (Spaltentypen)
-  web/                   routes_{dokumente,suche,entitaeten,sql,status,upload}.py, vorlagen.py,
+  web/                   routes_{dokumente,suche,entitaeten,klassifikation,sql,status,upload}.py, vorlagen.py,
                          templates/ (Jinja2, vanilla JS, Polling alle 2 s)
 
 alembic/versions/0001_basis.py   Basis-Schema inkl. pgvector, tsvector und Rolle vfm_leser
@@ -159,6 +161,13 @@ docs/superpowers/                Spec, Plan, Spike-Ergebnisse
 - **Dedup/Ordner-Import**: Dateien werden per SHA-256 dedupliziert; Ordner-Import
   (`ingest_ordner`) verschiebt nichts (Material wird von vielen wiederverwendet, SHA-Dedup reicht). Mail-Anhaenge werden Kind-Dokumente
   (`parent_id`); Inline-Bilder mit Content-ID zaehlen nicht (Signatur-/Logo-Bilder).
+- **Klassifikation LLM vs. CLEF**: Rolle `classify` (`CLASSIFY_BASE_URL` Standard Cortecs,
+  `CLASSIFY_MODEL=clef-flash:latest`). `api_key_fuer("classify")` faellt **unabhaengig vom Provider**
+  auf `CORTECS_API_KEY` zurueck; ohne Schluessel ist CLEF still aus (`clef_aktiv()`), nur
+  `vfm analyse --art klassifikation_clef` meldet das. Analyse-Art `klassifikation_clef` bekommt
+  denselben Text (`MAX_ZEICHEN`), dieselbe Frage und dieselben Kategorien wie `klassifikation`.
+  `config/` ist read-only in den Container gemountet (Aenderungen an der Kategorien-Datei wirken
+  ohne Neubau). Cortecs Decisions-API ist Beta; nie mit echtem Schluessel getestet.
 - **Agent-API**: `/api/*` mit optionalem `Authorization: Bearer <API_TOKEN>`
   (leer = offen; Vergleich per `hmac.compare_digest`). OpenAPI-Beschreibungen sind
   deutsch und bewusst ausfuehrlich (der Agent liest sie). 409 = keine Embeddings, 502 = Provider.

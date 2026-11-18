@@ -488,6 +488,43 @@ def analyse(
         konsole.print("[yellow]Mindestens eine Analyse ist fehlgeschlagen – Details in den Läufen (Dokument-Seite).[/yellow]")
 
 
+def _klass_zelle(e) -> str:
+    if e is None:
+        return "–"
+    dauer = f", {e.dauer_ms} ms" if e.dauer_ms is not None else ""
+    return f"{escape(e.kategorie)} ({round(e.sicherheit * 100)} %{dauer})"
+
+
+@app.command()
+@cli_fehler
+def klassifikation(
+    ctx: typer.Context,
+    dokument: Optional[int] = typer.Option(None, "--dokument", "-d", help="Nur dieses Dokument (ID)."),
+) -> None:
+    """Zeigt LLM- und CLEF-Klassifikation nebeneinander (Kategorie, Sicherheit, Dauer)."""
+    from app.analyse.kategorien import lade_klassifikation
+    from app.analyse.vergleich import klassifikation_vergleich
+
+    s: Settings = ctx.obj
+    vorgabe = lade_klassifikation(s.kategorien_pfad)
+    konsole.print(f"Frage: {escape(vorgabe.frage)}")
+    konsole.print("Kategorien: " + escape(", ".join(k.name for k in vorgabe.kategorien)))
+    if not s.clef_aktiv():
+        konsole.print("[yellow]CLEF ist aus – CORTECS_API_KEY in der .env setzen.[/yellow]")
+    with session_aus(s) as session:
+        zeilen = klassifikation_vergleich(session, dokument)
+    if not zeilen:
+        konsole.print("Noch keine Klassifikationen – erst `vfm analyse --art klassifikation` bzw. `--art klassifikation_clef`.")
+        return
+    tabelle = Table("ID", "Dokument", f"LLM ({escape(s.chat_model)})", f"CLEF ({escape(s.classify_model)})")
+    for z in zeilen:
+        tabelle.add_row(str(z.dokument_id), escape(z.dateiname), _klass_zelle(z.llm), _klass_zelle(z.clef))
+    konsole.print(tabelle)
+    if dokument is not None and zeilen[0].clef and zeilen[0].clef.wahrscheinlichkeiten:
+        konsole.print("CLEF-Wahrscheinlichkeiten: " + ", ".join(
+            f"{escape(n)} {round(p * 100)} %" for n, p in zeilen[0].clef.wahrscheinlichkeiten))
+
+
 @app.command()
 @cli_fehler
 def pipeline(

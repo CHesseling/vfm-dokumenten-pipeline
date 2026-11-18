@@ -58,7 +58,10 @@ class DokumentAntwort(BaseModel):
     text_gekuerzt: bool = Field(description="true, wenn der Text gekürzt wurde")
     entitaeten: list[EntitaetInDokument] = Field(description="Erkannte Entitäten des aktiven Textes")
     analysen: dict[str, dict] = Field(
-        description="LLM-Analysen je Art (zusammenfassung, klassifikation, bildbeschreibung)"
+        description=(
+            "Analysen je Art: zusammenfassung, klassifikation (LLM), klassifikation_clef (Classifier CLEF, "
+            "mit wahrscheinlichkeiten je Kategorie), bildbeschreibung"
+        )
     )
     anhaenge: list[int] = Field(description="IDs der Anhänge (Kind-Dokumente), z. B. bei E-Mails")
     parent_id: int | None = Field(description="ID des übergeordneten Dokuments (bei Anhängen), sonst null")

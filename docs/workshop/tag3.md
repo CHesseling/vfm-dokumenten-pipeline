@@ -67,7 +67,30 @@ darunter loest `[1]` in Dateiname und Dokument-ID auf. Pruefe immer die
 Quelle: Das Modell kann sich verschlucken.
 
 Weitere Analysen mit dem LLM: `vfm analyse` (Zusammenfassung, Kategorie,
-Bildbeschreibung). Eigene Kategorien: `config/kategorien.yaml`.
+Bildbeschreibung). Frage und eigene Kategorien: `config/kategorien.yaml`
+(wirkt sofort, ohne Neustart).
+
+## LLM gegen Classifier: Kategorien mit CLEF
+
+CLEF (Cloudflare, Modell `clef-flash` bei Cortecs) ist ein Classifier: Er erzeugt
+keinen Text, sondern gibt fuer jede Kategorie eine Wahrscheinlichkeit aus. Beide
+Verfahren bekommen denselben Text, dieselbe Frage und dieselben Kategorien.
+Vergleiche Kategorie, Sicherheit und Dauer.
+
+```bash
+vfm analyse --art klassifikation          # LLM
+vfm analyse --art klassifikation_clef     # CLEF (braucht CORTECS_API_KEY in der .env)
+vfm klassifikation                        # beide nebeneinander
+vfm klassifikation --dokument <ID>        # dazu alle CLEF-Wahrscheinlichkeiten
+```
+
+In der Oberflaeche: Seite "Klassifikation" (alle Dokumente) und im Dokumentdetail
+der Abschnitt "Klassifikation: LLM und CLEF".
+
+Fragen zum Nachdenken: Wo sind sich beide einig? Wo ist CLEF unsicher (z. B. zwei
+Kategorien fast gleich wahrscheinlich)? Was passiert, wenn du in
+`config/kategorien.yaml` eine Beschreibung schaerfst und neu rechnest
+(`--alle-neu`)?
 
 ## Hermes-Agent: die Schnittstelle /api
 

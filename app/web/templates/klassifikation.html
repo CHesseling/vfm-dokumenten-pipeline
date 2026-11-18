@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Klassifikation{% endblock %}
+{% block content %}
+<h1>Klassifikation: LLM und CLEF</h1>
+<p>Beide Verfahren bekommen denselben Text (die ersten 12 000 Zeichen), dieselbe Frage und dieselben
+Kategorien aus <code>config/kategorien.yaml</code>. In Klammern: Sicherheit und Dauer.</p>
+{% if not clef_aktiv %}<p class="hinweis-box">CLEF ist aus: Für CLEF in der <code>.env</code> einen <code>CORTECS_API_KEY</code> setzen und neu starten.</p>{% endif %}
+{% if vorgabe_fehler %}<p class="fehler-text">{{ vorgabe_fehler }}</p>{% endif %}
+{% if vorgabe %}
+<h2>Frage</h2>
+<p>{{ vorgabe.frage }}</p>
+<table>
+  <thead><tr><th>Kategorie</th><th>Beschreibung</th></tr></thead>
+  <tbody>{% for k in vorgabe.kategorien %}<tr><td>{{ k.name }}</td><td>{{ k.beschreibung }}</td></tr>{% endfor %}</tbody>
+</table>
+{% endif %}
+<h2>Ergebnisse</h2>
+{% if zeilen %}
+<table>
+  <thead><tr><th>Dokument</th><th>LLM ({{ chat_model }})</th><th>CLEF ({{ classify_model }})</th></tr></thead>
+  <tbody>
+    {% for z in zeilen %}
+    <tr><td><a href="/dokumente/{{ z.dokument_id }}">{{ z.dateiname }}</a></td>
+      <td>{% with e = z.llm %}{% include "_klass_zelle.html" %}{% endwith %}</td>
+      <td>{% with e = z.clef %}{% include "_klass_zelle.html" %}{% endwith %}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="hinweis-box">Noch keine Klassifikationen. Auf der Status-Seite „Analyse für alle“ starten oder
+<code>vfm analyse --art klassifikation</code> und <code>vfm analyse --art klassifikation_clef</code>.</p>
+{% endif %}
+{% endblock %}

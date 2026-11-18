@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.analyse.ablauf import analyse_ausfuehren
+from app.analyse.vergleich import klassifikation_vergleich
 from app.embed.index import embeddings_loeschen
 from app.config import Settings, get_settings
 from app.db import get_session
@@ -181,6 +182,7 @@ def dokument_detail(
             "ner_fehler": bool(ner_fehler),
             "analyse_fehler": bool(analyse_fehler),
             "analysen": analysen,
+            "klassifikation": next(iter(klassifikation_vergleich(session, dokument_id)), None),
             "parameter_fehler": bool(parameter_fehler),
             "labels_vorbelegt": labels_als_text(None),
             "schwelle_vorbelegt": s.gliner_schwelle,

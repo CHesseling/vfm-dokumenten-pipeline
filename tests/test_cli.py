@@ -252,6 +252,20 @@ def test_vfm_analyse_clef_ohne_schluessel(cli_settings):
     assert r.exit_code == 2 and "CORTECS_API_KEY" in r.output
 
 
+def test_vfm_klassifikation_tabelle(cli_settings, session):
+    from app.enums import AnalyseArt
+    from tests.analyse.test_vergleich import CLEF, LLM, _analyse, _dok
+
+    a = _dok(session, "a.txt", "k1")
+    _analyse(session, a, AnalyseArt.KLASSIFIKATION, "chat-m", LLM, 4200)
+    _analyse(session, a, AnalyseArt.KLASSIFIKATION_CLEF, "clef-flash:latest", CLEF, 120)
+    session.commit()
+    r = runner.invoke(cli.app, ["klassifikation"], obj=cli_settings)
+    assert r.exit_code == 0, r.output
+    for teil in ("a.txt", "Vertrag", "Rechnung", "4200", "120", "90 %", "70 %"):
+        assert teil in r.output, teil
+
+
 def test_suche_cli_volltext_und_embed(session, cli_settings):
     from tests.embed.test_index import chunks_anlegen
 
