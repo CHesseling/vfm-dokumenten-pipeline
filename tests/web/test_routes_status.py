@@ -167,3 +167,10 @@ def test_analyse_lauf_meldet_fehlgeschlagene(client, session):
     assert daten["fertig"] is True
     assert daten["fehlgeschlagen"] > 0
     assert "Fehler" in daten["schritt"] and "Läufe-Tabelle" in daten["schritt"]
+
+
+def test_classify_rolle_in_konfiguration(client, einstellungen):
+    einstellungen.cortecs_api_key = "ck-geheim-9999"
+    html = client.get("/status").text
+    assert "classify" in html and "clef-flash:latest" in html and "https://api.cortecs.ai/v1" in html
+    assert "ck-geheim-9999" not in html

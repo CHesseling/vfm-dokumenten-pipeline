@@ -1,4 +1,5 @@
 from app.config import Settings
+from app.providers.decisions import DecisionsClient
 from app.providers.embeddings import EmbeddingClient
 from app.providers.llm_client import LLMClient
 from app.providers.rerank import ApiReranker, KeinReranker, LokalerReranker, Reranker
@@ -53,6 +54,10 @@ def embedding_client(
         **({"timeout": timeout} if timeout else {}),
         connect_timeout=connect_timeout,
     )
+
+
+def classify_client(s: Settings) -> DecisionsClient:
+    return DecisionsClient(s.classify_base_url, s.classify_model, api_key=s.api_key_fuer("classify"))
 
 
 def reranker(s: Settings, timeout: float | None = None, connect_timeout: float | None = None) -> Reranker:

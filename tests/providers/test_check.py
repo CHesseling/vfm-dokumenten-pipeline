@@ -45,7 +45,8 @@ def test_alles_ok():
     _embed_ok()
     respx.get("http://tr/v1/models").mock(return_value=httpx.Response(200, json={"data": []}))
     erg = _nach_rolle(pruefe_rollen(_settings()))
-    assert set(erg) == {"chat", "vision", "embed", "rerank", "transcribe"}
+    assert set(erg) == {"chat", "vision", "embed", "rerank", "transcribe", "classify"}
+    assert erg["classify"].ok and "aus" in erg["classify"].detail
     assert all(e.ok for e in erg.values()), erg
     assert erg["embed"].detail == "Dimension 3"
     assert erg["chat"].modell == "chat-m"
@@ -174,3 +175,14 @@ def test_clients_geben_timeouts_an_httpx(monkeypatch):
     assert c._gesamt_timeout == 90.0 and c._client.timeout.connect == 5.0
     e = factory.embedding_client(s, timeout=90.0, connect_timeout=5.0)
     assert e._client.timeout.connect == 5.0 and e._client.timeout.read == 90.0
+
+
+@respx.mock
+def test_classify_mit_schluessel_prueft_api():
+    _chat_ok()
+    _embed_ok()
+    respx.get("http://tr/v1/models").mock(return_value=httpx.Response(200))
+    route = respx.get("https://api.cortecs.ai/v1/models").mock(return_value=httpx.Response(200, json={"data": []}))
+    erg = _nach_rolle(pruefe_rollen(_settings(cortecs_api_key="ck")))
+    assert erg["classify"].ok and erg["classify"].modell == "clef-flash:latest"
+    assert route.calls[0].request.headers["Authorization"] == "Bearer ck"

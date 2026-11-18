@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     transcribe_api_key: str | None = None
     whisper_pfad: str = "/models/whisper"
 
+    # Classifier CLEF ueber die Cortecs Decisions-API (Schluessel: CLASSIFY_API_KEY oder CORTECS_API_KEY)
+    classify_base_url: str = "https://api.cortecs.ai/v1"
+    classify_model: str = "clef-flash:latest"
+    classify_api_key: str | None = None
+
     gliner_model: str = "fastino/gliner2-base-v1"
     gliner_schwelle: float = 0.5
     docling_artifacts_pfad: str = "/models/docling"
@@ -98,9 +103,13 @@ class Settings(BaseSettings):
         eigener = getattr(self, f"{rolle}_api_key")
         if eigener:
             return eigener
-        if self.provider == "cortecs":
+        if self.provider == "cortecs" or rolle == "classify":
+            # CLEF gibt es nur bei Cortecs - auch wenn Chat & Co. lokal laufen
             return self.cortecs_api_key
         return None
+
+    def clef_aktiv(self) -> bool:
+        return bool(self.api_key_fuer("classify"))
 
     def vision_effektiv(self) -> tuple[str, str, str | None]:
         return (

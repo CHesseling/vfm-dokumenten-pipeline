@@ -90,6 +90,16 @@ def _transcribe(s: Settings) -> str:
     return "API erreichbar"
 
 
+def _classify(s: Settings) -> str:
+    if not s.clef_aktiv():
+        return "aus – kein CORTECS_API_KEY (CLEF ist optional)"
+    httpx.get(
+        s.classify_base_url.rstrip("/") + "/models",
+        headers={"Authorization": f"Bearer {s.api_key_fuer('classify')}"}, timeout=15.0,
+    ).raise_for_status()
+    return "API erreichbar"
+
+
 def pruefe_rollen(s: Settings) -> list[RollenCheck]:
     _, vision_modell, _ = s.vision_effektiv()
     rerank_backend = s.rerank_backend
@@ -99,6 +109,7 @@ def pruefe_rollen(s: Settings) -> list[RollenCheck]:
         ("embed", "api", s.embed_model, _embed),
         ("rerank", rerank_backend, s.rerank_model if rerank_backend != "none" else "-", _rerank),
         ("transcribe", s.transcribe_backend, s.transcribe_model, _transcribe),
+        ("classify", "api", s.classify_model if s.clef_aktiv() else "-", _classify),
     ]
     ergebnisse = []
     for rolle, backend, modell, pruefung in plan:

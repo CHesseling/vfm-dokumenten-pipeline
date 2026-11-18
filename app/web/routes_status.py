@@ -38,9 +38,11 @@ def rollen_konfiguration(s: Settings) -> list[dict]:
          s.rerank_base_url if s.rerank_backend == "api" else None, s.api_key_fuer("rerank")),
         ("transcribe", s.transcribe_backend, s.transcribe_model,
          s.transcribe_base_url if s.transcribe_backend == "api" else None, s.api_key_fuer("transcribe")),
+        ("classify", "api" if s.clef_aktiv() else "aus", s.classify_model, s.classify_base_url,
+         s.api_key_fuer("classify")),
     ]
     return [
-        {"rolle": r, "provider": s.provider, "backend": b, "modell": m or KEIN_WERT, "url": ohne_zugangsdaten(u) or KEIN_WERT,
+        {"rolle": r, "provider": "cortecs" if r == "classify" else s.provider, "backend": b, "modell": m or KEIN_WERT, "url": ohne_zugangsdaten(u) or KEIN_WERT,
          "key": maskiere_key(k)}
         for r, b, m, u, k in zeilen
     ]

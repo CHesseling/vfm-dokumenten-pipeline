@@ -168,3 +168,21 @@ def test_gliner_schwelle_ausserhalb_abgelehnt(wert):
     with pytest.raises(ValidationError):
         Settings(database_url="postgresql+psycopg://x/y", chat_base_url="http://c/v1", chat_model="c",
                  embed_base_url="http://e/v1", embed_model="e", gliner_schwelle=wert, _env_file=None)
+
+
+def _basis(**kw):
+    return Settings(database_url="postgresql+psycopg://x/y", chat_base_url="http://c/v1", chat_model="c",
+                    embed_base_url="http://e/v1", embed_model="e", _env_file=None, **kw)
+
+
+def test_classify_nutzt_cortecs_key_auch_bei_ollama():
+    s = _basis(provider="ollama", cortecs_api_key="ck")
+    assert s.api_key_fuer("classify") == "ck" and s.clef_aktiv()
+    assert s.api_key_fuer("chat") is None  # andere Rollen bleiben unberuehrt
+    assert _basis(cortecs_api_key="ck", classify_api_key="eigen").api_key_fuer("classify") == "eigen"
+
+
+def test_clef_ohne_schluessel_aus():
+    s = _basis()
+    assert not s.clef_aktiv()
+    assert s.classify_model == "clef-flash:latest" and s.classify_base_url == "https://api.cortecs.ai/v1"
