@@ -38,8 +38,11 @@ vfm status                            # wie weit ist jeder Dokumenttyp?
 ```
 
 Was passiert je Dateityp: PDF liefert Text direkt oder per OCR, Mails werden
-zerlegt (Anhaenge werden eigene Dokumente), Audio wird transkribiert (Whisper),
-Bilder werden vom Vision-Modell gelesen, Textdateien direkt uebernommen.
+zerlegt (Anhaenge werden eigene Dokumente), Audio und Videos werden transkribiert
+(Whisper, bei Videos die Tonspur), Bilder werden vom Vision-Modell gelesen,
+Word, Excel, PowerPoint und HTML liest Docling (Tabellen bleiben Tabellen),
+Textdateien werden direkt uebernommen. Altes Word (`.doc`) wird nicht gelesen:
+vorher als `.docx` oder PDF speichern.
 Dasselbe Dokument zweimal einzulesen ist harmlos (wird erkannt: "bekannt").
 
 ## PDFs: drei Methoden vergleichen

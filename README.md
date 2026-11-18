@@ -4,7 +4,7 @@ Begleitmaterial zum vfm-Datenseminar (30.11.-2.12.2026, Claus Hesseling und
 Jan Eggers).
 
 Die Pipeline liest Rechercheunterlagen ein (PDFs, Scans, Mails, Sprachnachrichten,
-Fotos, Textdateien), holt den Text heraus, erkennt Personen, Organisationen,
+Videos, Fotos, Word/Excel/PowerPoint, Textdateien), holt den Text heraus, erkennt Personen, Organisationen,
 IBANs und Telefonnummern, macht alles durchsuchbar und beantwortet Fragen mit
 Quellenangabe ("Chatte mit deinen Dokumenten"). Alles laeuft auf deinem
 eigenen Rechner in Docker; die Sprachmodelle laufen lokal mit Ollama (oder
@@ -248,7 +248,9 @@ aktuelle Modell.
 - Das PowerShell-Einspielskript ist nicht auf einem echten Windows-Rechner getestet.
 - Das amd64-Image (Intel/Windows/Linux) wurde gebaut, aber noch nicht auf dem
   Zielserver ausprobiert; arm64 (Apple Silicon) ist getestet.
-- Video wird nicht unterstuetzt (nur PDF, Mail, Audio, Bild, Text).
+- Alte Office-Formate (`.doc`, `.xls`, `.ppt`) werden nicht gelesen; vorher als
+  `.docx`/`.xlsx`/`.pptx` oder PDF speichern. Bei Videos wird nur die Tonspur transkribiert.
+- HTML-Originale werden aus Sicherheitsgruenden nur zum Download angeboten, nicht angezeigt.
 
 ## Fuer Entwickler
 

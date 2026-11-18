@@ -12,6 +12,10 @@ _ENDUNGEN: list[tuple[DokumentTyp, set[str]]] = [
         {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tif", ".tiff"},
     ),
     (DokumentTyp.TEXT, {".txt", ".md", ".csv"}),
+    # Docling; altes .doc/.xls/.ppt bewusst nicht (braeuchte LibreOffice)
+    (DokumentTyp.OFFICE, {".docx", ".xlsx", ".pptx", ".html", ".htm"}),
+    # Whisper liest die Tonspur direkt aus dem Container (ffmpeg/PyAV)
+    (DokumentTyp.VIDEO, {".mp4", ".mov", ".m4v", ".webm", ".mkv"}),
 ]
 
 _MIME = {
@@ -35,6 +39,16 @@ _MIME = {
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".csv": "text/csv",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".m4v": "video/x-m4v",
+    ".webm": "video/webm",
+    ".mkv": "video/x-matroska",
 }
 
 

@@ -206,3 +206,23 @@ def test_detail_formular_vorbelegt(client, session):
     html = client.get(f"/dokumente/{d.id}").text
     assert 'value="person, organisation, ort, datum, geldbetrag, iban, telefon, email"' in html
     assert 'name="schwelle"' in html and 'value="0.5"' in html and 'step="any"' in html
+
+
+def test_detail_video_element(client, session, einstellungen):
+    from app.ingest.speichern import dokument_speichern
+
+    dok, _ = dokument_speichern(session, b"\x00\x00\x00\x18ftypmp42", "interview.mp4", einstellungen.daten_pfad)
+    session.commit()
+    html = client.get(f"/dokumente/{dok.id}").text
+    assert f'<video controls src="/dokumente/{dok.id}/datei"' in html
+
+
+def test_html_original_nie_inline(client, session, einstellungen):
+    from app.ingest.speichern import dokument_speichern
+
+    dok, _ = dokument_speichern(session, b"<script>alert(1)</script>", "seite.html", einstellungen.daten_pfad)
+    session.commit()
+    r = client.get(f"/dokumente/{dok.id}/datei")
+    assert r.headers["content-disposition"].startswith("attachment")
+    assert r.headers["content-type"].startswith("application/octet-stream")
+    assert r.headers.get("x-content-type-options") == "nosniff"

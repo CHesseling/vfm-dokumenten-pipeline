@@ -7,6 +7,8 @@ class DokumentTyp(str, Enum):
     AUDIO = "audio"
     BILD = "bild"
     TEXT = "text"
+    OFFICE = "office"
+    VIDEO = "video"
     SONSTIG = "sonstig"
 
 

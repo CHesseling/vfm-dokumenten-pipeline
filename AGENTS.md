@@ -50,7 +50,8 @@ app/
     dateitypen.py          erkenne_typ
     pdf.py / pdf_render.py pdf_schnell (pypdfium2), pdf_docling (OCR, offline), pdf_vision
     eml.py / eml_parse.py  Mail -> Text + Anhaenge (Kind-Dokumente), Metadaten
-    audio.py bild.py text.py  Transkription, Bild-OCR + EXIF, Textdateien
+    audio.py bild.py text.py  Transkription (auch Tonspur von Videos), Bild-OCR + EXIF, Textdateien
+    office.py              docx/xlsx/pptx/html per Docling (Methode "docling"); kein .doc/.xls/.ppt
     chunking.py            chunken(): Chunks nur fuer die AKTIVE Extraktion
 
   ner/                   Entitaeten
@@ -168,6 +169,9 @@ docs/superpowers/                Spec, Plan, Spike-Ergebnisse
   denselben Text (`MAX_ZEICHEN`), dieselbe Frage und dieselben Kategorien wie `klassifikation`.
   `config/` ist read-only in den Container gemountet (Aenderungen an der Kategorien-Datei wirken
   ohne Neubau). Cortecs Decisions-API ist Beta; nie mit echtem Schluessel getestet.
+- **Originale ausliefern**: `/dokumente/{id}/datei` zeigt nur PDF, Bild (ohne SVG), Audio, Video
+  und reinen Text inline (`INLINE_SICHER`); alles andere, v. a. HTML, kommt als Download
+  (`application/octet-stream`, `nosniff`) - sonst liefe hochgeladenes HTML im App-Kontext.
 - **Agent-API**: `/api/*` mit optionalem `Authorization: Bearer <API_TOKEN>`
   (leer = offen; Vergleich per `hmac.compare_digest`). OpenAPI-Beschreibungen sind
   deutsch und bewusst ausfuehrlich (der Agent liest sie). 409 = keine Embeddings, 502 = Provider.

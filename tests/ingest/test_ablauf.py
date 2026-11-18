@@ -70,8 +70,8 @@ def test_kaputtes_pdf_bricht_nicht_ab(session, einstellungen, clients, tmp_path,
     assert [(e.methode, e.text) for e in extraktionen] == [(ExtraktionsMethode.SCHNELL, "")]
 
 
-def test_docx_wird_uebersprungen(session, einstellungen, clients):
-    d = ingest_datei(session, b"PK\x03\x04docx", "a.docx", einstellungen, clients)
+def test_altes_doc_wird_uebersprungen(session, einstellungen, clients):
+    d = ingest_datei(session, b"\xd0\xcf\x11\xe0doc", "a.doc", einstellungen, clients)
     assert d.typ == DokumentTyp.SONSTIG
     laeufe = _laeufe(session)
     assert len(laeufe) == 1
@@ -227,3 +227,19 @@ def test_datei_mit_teilerfolg_ist_kein_fehler(session, einstellungen, clients, m
     monkeypatch.setattr(ablauf, "pdf_docling", lambda inhalt, pfad: (_ for _ in ()).throw(RuntimeError("x")))
     ergebnis = ablauf.ingest_datei_mit_ergebnis(session, mini_pdf([["x"]]), "s.pdf", einstellungen, clients)
     assert ergebnis.fehlgeschlagen is False
+
+
+def test_office_ueber_docling(session, einstellungen, clients, monkeypatch):
+    erhalten = []
+    monkeypatch.setattr(ablauf, "office_docling", lambda inhalt, name, pfad: erhalten.append(name) or "| Tabelle |")
+    d = ingest_datei(session, b"PK\x03\x04docx", "bericht.docx", einstellungen, clients)
+    ex = session.exec(select(TextExtraktion).where(TextExtraktion.dokument_id == d.id)).one()
+    assert d.typ == DokumentTyp.OFFICE and ex.methode == ExtraktionsMethode.DOCLING and ex.ist_aktiv
+    assert ex.text == "| Tabelle |" and erhalten == ["bericht.docx"]
+
+
+def test_video_ueber_whisper(session, einstellungen, clients):
+    d = ingest_datei(session, b"\x00\x00\x00\x18ftypmp42video", "interview.mp4", einstellungen, clients)
+    ex = session.exec(select(TextExtraktion).where(TextExtraktion.dokument_id == d.id)).one()
+    assert d.typ == DokumentTyp.VIDEO and ex.methode == ExtraktionsMethode.WHISPER and ex.modell == "whisper-m"
+    assert ex.text == "Das ist ein transkribierter Text." and ex.ist_aktiv

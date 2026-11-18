@@ -23,6 +23,8 @@
 <img src="{{ url }}" alt="{{ dokument.dateiname }}" style="max-width:100%;border:1px solid var(--border)">
 {% elif dokument.typ.value == "audio" %}
 <audio controls src="{{ url }}"></audio>
+{% elif dokument.typ.value == "video" %}
+<video controls src="{{ url }}" style="max-width:100%;max-height:30rem"></video>
 {% elif dokument.typ.value == "eml" %}
 <h3>Anhänge</h3>
 {% if kinder %}

@@ -224,6 +224,14 @@ def embeddings_loeschen_route(
     return RedirectResponse(url=f"/dokumente/{dokument_id}", status_code=303)
 
 
+INLINE_SICHER = ("application/pdf", "image/", "audio/", "video/", "text/plain", "text/markdown", "text/csv")
+
+
+def _inline_sicher(mime: str) -> bool:
+    """Nur Typen, die der Browser nicht als aktive Inhalte ausfuehrt (SVG kann Skripte enthalten)."""
+    return mime.startswith(INLINE_SICHER) and mime != "image/svg+xml"
+
+
 @router.get("/dokumente/{dokument_id}/datei")
 def dokument_datei(
     dokument_id: int,
@@ -236,12 +244,15 @@ def dokument_datei(
     pfad = Path(dokument.dateipfad(s.daten_pfad))
     if not pfad.is_file():
         raise HTTPException(status_code=404, detail="Datei nicht auf dem Datenträger")
+    name = quote(dokument.dateiname)
+    if _inline_sicher(dokument.mime):
+        media_type, disposition = dokument.mime, f"inline; filename*=UTF-8''{name}"
+    else:  # z. B. HTML: im App-Kontext angezeigt koennten Skripte laufen (Stored XSS)
+        media_type, disposition = "application/octet-stream", f"attachment; filename*=UTF-8''{name}"
     return FileResponse(
         pfad,
-        media_type=dokument.mime,
-        headers={
-            "Content-Disposition": f"inline; filename*=UTF-8''{quote(dokument.dateiname)}"
-        },
+        media_type=media_type,
+        headers={"Content-Disposition": disposition, "X-Content-Type-Options": "nosniff"},
     )
 
 

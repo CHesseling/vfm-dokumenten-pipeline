@@ -19,6 +19,7 @@ from app.ingest.audio import audio_transkribieren
 from app.ingest.bild import bild_metadaten, bild_ocr
 from app.ingest.dateitypen import erkenne_typ
 from app.ingest.eml import EmlInhalt, eml_lesen
+from app.ingest.office import office_docling
 from app.ingest.pdf import pdf_docling, pdf_schnell, pdf_vision
 from app.ingest.speichern import dokument_speichern, extraktion_speichern, lesen_datei
 from app.ingest.text import text_lesen
@@ -237,7 +238,7 @@ def _ingest(
                         session, dokument_id, "anhang", s, None, 0, LaufStatus.FEHLER,
                         _fehlertext(e),
                     )
-    elif typ == DokumentTyp.AUDIO:
+    elif typ in (DokumentTyp.AUDIO, DokumentTyp.VIDEO):
         if ExtraktionsMethode.WHISPER not in vorhanden:
             _methode_ausfuehren(
                 session,
@@ -256,6 +257,12 @@ def _ingest(
                 s,
                 clients.vision.model,
                 lambda: bild_ocr(inhalt, clients.vision),
+            )
+    elif typ == DokumentTyp.OFFICE:
+        if ExtraktionsMethode.DOCLING not in vorhanden:
+            _methode_ausfuehren(
+                session, dokument, ExtraktionsMethode.DOCLING, s, "docling",
+                lambda: office_docling(inhalt, dateiname, s.docling_artifacts_pfad),
             )
     elif typ == DokumentTyp.TEXT:
         if ExtraktionsMethode.TEXT not in vorhanden:
