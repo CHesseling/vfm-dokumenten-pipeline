@@ -2,12 +2,13 @@ import logging
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from app.analyse.ablauf import analyse_ausfuehren
+from app.embed.index import embeddings_loeschen
 from app.config import Settings, get_settings
 from app.db import get_session
 from app.enums import AnalyseArt, DokumentTyp
@@ -15,6 +16,8 @@ from app.ingest.speichern import aktiv_setzen
 from app.models import (
     Analyse, Chunk, Dokument, Embedding, Entitaet, Lauf, TextExtraktion,
 )
+from app.ner.labels import SCHWELLE_MAX, SCHWELLE_MIN, labels_als_text
+from app.ner.treffer import LABELS
 from app.web.routes_entitaeten import ner_darstellung
 from app.web.vorlagen import templates
 
@@ -144,7 +147,9 @@ def dokument_detail(
     dokument_id: int,
     ner_fehler: str = "",
     analyse_fehler: str = "",
+    parameter_fehler: str = "",
     session: Session = Depends(get_session),
+    s: Settings = Depends(get_settings),
 ):
     dokument = session.get(Dokument, dokument_id)
     if dokument is None:
@@ -176,8 +181,45 @@ def dokument_detail(
             "ner_fehler": bool(ner_fehler),
             "analyse_fehler": bool(analyse_fehler),
             "analysen": analysen,
+            "parameter_fehler": bool(parameter_fehler),
+            "labels_vorbelegt": labels_als_text(None),
+            "schwelle_vorbelegt": s.gliner_schwelle,
+            "schwelle_min": SCHWELLE_MIN,
+            "schwelle_max": SCHWELLE_MAX,
+            "bekannte_labels": LABELS,
+            "embed_modell": s.embed_model,
+            "embeddings_aktuell": _embeddings_zaehlen(session, dokument_id, s.embed_model),
+            "embeddings_alle": _embeddings_zaehlen(session, dokument_id, None),
         },
     )
+
+
+def _embeddings_zaehlen(session: Session, dokument_id: int, modell: str | None) -> int:
+    abfrage = (
+        select(func.count(Embedding.id))
+        .join(Chunk, Chunk.id == Embedding.chunk_id)
+        .join(TextExtraktion, TextExtraktion.id == Chunk.textextraktion_id)
+        .where(TextExtraktion.dokument_id == dokument_id)
+    )
+    if modell is not None:
+        abfrage = abfrage.where(Embedding.modell == modell)
+    return session.exec(abfrage).one()
+
+
+@router.post("/dokumente/{dokument_id}/embeddings/loeschen")
+def embeddings_loeschen_route(
+    dokument_id: int,
+    umfang: str = Form(...),
+    session: Session = Depends(get_session),
+    s: Settings = Depends(get_settings),
+):
+    if session.get(Dokument, dokument_id) is None:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if umfang not in ("aktuell", "alle"):
+        raise HTTPException(status_code=400, detail="Unbekannter Umfang")
+    embeddings_loeschen(session, dokument_id, s.embed_model if umfang == "aktuell" else None, s.provider)
+    session.commit()
+    return RedirectResponse(url=f"/dokumente/{dokument_id}", status_code=303)
 
 
 @router.get("/dokumente/{dokument_id}/datei")

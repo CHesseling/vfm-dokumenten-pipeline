@@ -164,3 +164,45 @@ def test_liste_kategorie_spalte_und_filter(client, session):
     assert "Kategorie" in html and "Vertrag" in html and "Rechnung" in html
     gefiltert = client.get("/dokumente?kategorie=Vertrag").text
     assert "vertrag.txt" in gefiltert and "rest.txt" not in gefiltert and "ohne.txt" not in gefiltert
+
+
+def _dok_mit_embeddings(session):
+    from app.models import Chunk, Dokument, Embedding, TextExtraktion
+
+    d = Dokument(sha256="e1", dateiname="e.txt", typ=DokumentTyp.TEXT, mime="text/plain", groesse=1)
+    session.add(d)
+    session.flush()
+    ex = TextExtraktion(dokument_id=d.id, methode=ExtraktionsMethode.TEXT, text="eins", ist_aktiv=True)
+    session.add(ex)
+    session.flush()
+    c = Chunk(textextraktion_id=ex.id, position=0, start=0, ende=4, text="eins")
+    session.add(c)
+    session.flush()
+    for modell in ("embed-m", "anderes"):
+        session.add(Embedding(chunk_id=c.id, modell=modell, vektor=[1.0, 2.0]))
+    session.commit()
+    return d
+
+
+def test_embeddings_loeschen_route(client, session):
+    from sqlmodel import select
+
+    from app.models import Embedding
+
+    d = _dok_mit_embeddings(session)
+    assert "Embeddings: 1 (Modell embed-m), 2 (alle Modelle)" in client.get(f"/dokumente/{d.id}").text
+    r = client.post(f"/dokumente/{d.id}/embeddings/loeschen", data={"umfang": "aktuell"})
+    assert r.status_code == 303 and r.headers["location"] == f"/dokumente/{d.id}"
+    assert [e.modell for e in session.exec(select(Embedding)).all()] == ["anderes"]
+    assert "Embeddings: 0 (Modell embed-m), 1 (alle Modelle)" in client.get(f"/dokumente/{d.id}").text
+    assert client.post(f"/dokumente/{d.id}/embeddings/loeschen", data={"umfang": "x"}).status_code == 400
+    client.post(f"/dokumente/{d.id}/embeddings/loeschen", data={"umfang": "alle"})
+    assert session.exec(select(Embedding)).all() == []
+    assert client.post("/dokumente/99999/embeddings/loeschen", data={"umfang": "alle"}).status_code == 404
+
+
+def test_detail_formular_vorbelegt(client, session):
+    d = _dok_mit_embeddings(session)
+    html = client.get(f"/dokumente/{d.id}").text
+    assert 'value="person, organisation, ort, datum, geldbetrag, iban, telefon, email"' in html
+    assert 'name="schwelle"' in html and 'value="0.5"' in html

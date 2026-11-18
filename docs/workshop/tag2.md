@@ -62,6 +62,29 @@ ohne Leerzeichen zaehlt als dieselbe).
 In der Oberflaeche: Seite "Entitaeten" (Gruppen ueber alle Dokumente, Filter
 nach Art) und im Dokumentdetail der Text mit markierten Entitaeten.
 
+### Eigene Labels und Schwelle ausprobieren
+
+Du kannst eigene Kategorien erfinden und die Schwelle von GliNER veraendern.
+Ein Label hat einen Namen und optional einen englischen Begriff fuer GliNER
+(das Modell ist englisch trainiert): `aktenzeichen=file number`.
+
+```bash
+vfm ner --methode gliner --dokument <ID> --labels "person, aktenzeichen=file number, behörde" --schwelle 0.3 --alle-neu
+vfm ner --methode llm --dokument <ID> --labels "aktenzeichen, fahrzeug" --alle-neu
+```
+
+- Schwelle (0.05 bis 0.95): niedriger = mehr Treffer, aber mehr Unsinn; hoeher = weniger, aber sicherer.
+- Ohne englischen Begriff geht der deutsche Name an GliNER – vergleiche, wie viel schlechter das klappt.
+- `iban`, `telefon` und `email` erkennt GliNER nur, wenn du einen Begriff angibst (`iban=bank account number`);
+  sonst sind sie Sache der Muster.
+- Ein neuer Lauf ersetzt die Treffer derselben Methode. Ueber den Treffern steht, mit welcher Schwelle und
+  welchen Labels sie entstanden sind.
+
+In der Oberflaeche: im Dokumentdetail stehen Labels und Schwelle im Formular "NER starten".
+Dort kannst du auch Entitaeten einer Methode oder Embeddings des Dokuments loeschen
+("NER fuer alle" bzw. "Embeddings erzeugen" auf der Status-Seite fuellen Geloeschtes
+mit den Standardwerten wieder auf).
+
 ```bash
 vfm sql "SELECT label, text, count(*) AS anzahl FROM entitaet GROUP BY label, text ORDER BY anzahl DESC LIMIT 30"
 vfm sql "SELECT DISTINCT d.id, d.dateiname, e.text AS iban FROM entitaet e JOIN textextraktion t ON t.id = e.textextraktion_id JOIN dokument d ON d.id = t.dokument_id WHERE e.label = 'iban' ORDER BY d.id"

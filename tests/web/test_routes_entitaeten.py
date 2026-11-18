@@ -1,3 +1,6 @@
+import pytest
+from sqlmodel import select
+
 import app.web.routes_entitaeten as re_
 from app.enums import DokumentTyp, ExtraktionsMethode, NerMethode
 from app.models import Dokument, Entitaet, TextExtraktion
@@ -106,3 +109,81 @@ def test_gleiche_iban_ueber_methoden_eine_zeile(client, session, monkeypatch):
     ablauf.ner_ausfuehren(session, s, {NerMethode.MUSTER, NerMethode.LLM}, labels=labels_parsen("iban"))
     html = client.get("/entitaeten?label=iban").text
     assert html.count("<tr><td>") == 1 and "<td>2</td>" in html
+
+
+def test_ner_formular_reicht_parameter_durch(client, session, monkeypatch):
+    from app.ner.ablauf import NerBilanz
+
+    d, _ = _dok(session, "a.txt", "Text", [], "1")
+    erhalten = {}
+
+    def fake(session, s, methoden, **kw):
+        erhalten.update(kw, methoden=methoden)
+        return NerBilanz()
+
+    monkeypatch.setattr(re_, "ner_ausfuehren", fake)
+    r = client.post(f"/dokumente/{d.id}/ner", data={"methode": ["gliner"], "labels": "person, aktenzeichen=file number",
+                                                    "schwelle": "0.3"})
+    assert r.status_code == 303 and r.headers["location"] == f"/dokumente/{d.id}"
+    assert erhalten["schwelle"] == 0.3 and erhalten["methoden"] == {NerMethode.GLINER}
+    assert erhalten["labels"] == labels_parsen("person, aktenzeichen=file number")
+
+
+def test_ner_formular_leere_felder_heisst_standard(client, session, monkeypatch):
+    from app.ner.ablauf import NerBilanz
+
+    d, _ = _dok(session, "a.txt", "Text", [], "1")
+    erhalten = {}
+    monkeypatch.setattr(re_, "ner_ausfuehren", lambda session, s, m, **kw: erhalten.update(kw) or NerBilanz())
+    client.post(f"/dokumente/{d.id}/ner", data={"methode": ["muster"], "labels": "", "schwelle": ""})
+    assert erhalten["labels"] is None and erhalten["schwelle"] is None
+
+
+@pytest.mark.parametrize("daten", [{"labels": "a=b=c"}, {"schwelle": "1.5"}, {"schwelle": "abc"},
+                                   {"labels": "<script>"}, {"schwelle": "nan"}])
+def test_ner_formular_ungueltig(client, session, monkeypatch, daten):
+    d, _ = _dok(session, "a.txt", "Text", [], "1")
+    monkeypatch.setattr(re_, "ner_ausfuehren", lambda *a, **k: pytest.fail("darf nicht laufen"))
+    r = client.post(f"/dokumente/{d.id}/ner", data={"methode": ["muster"], **daten})
+    assert r.status_code == 303 and r.headers["location"].endswith("?parameter_fehler=1")
+    seite = client.get(r.headers["location"]).text
+    normal = client.get(f"/dokumente/{d.id}").text
+    assert "Ungültige Labels oder Schwelle" in seite and "Ungültige Labels" not in normal
+    assert seite.count("<script>") == normal.count("<script>") and "&lt;script&gt;" not in seite
+
+
+def test_parameter_ueber_treffern(client, session):
+    from app.enums import LaufStatus
+    from app.models import Lauf
+
+    d, e = _dok(session, "a.txt", "Anna Meier", [(NerMethode.GLINER, "person", "Anna Meier", 0)], "1")
+    session.add(Lauf(schritt="ner:gliner", dokument_id=d.id, provider="ollama", status=LaufStatus.ERFOLG,
+                     roh_output={"extraktion_id": e.id, "schwelle": 0.3, "labels": "person, behörde"}))
+    session.commit()
+    assert "Schwelle 0.3 · Labels: person, behörde" in client.get(f"/dokumente/{d.id}").text
+
+
+def test_eigenes_label_markiert_neutral(client, session):
+    d, _ = _dok(session, "a.txt", "AZ 12 liegt vor", [(NerMethode.LLM, "aktenzeichen nr", "AZ 12", 0)], "1")
+    html = client.get(f"/dokumente/{d.id}").text
+    assert '<mark class="ent-eigen" title="aktenzeichen nr (llm)">AZ 12</mark>' in html
+
+
+def test_entitaeten_loeschen_route(client, session):
+    d, e = _dok(session, "a.txt", f"Konto {IBAN}", [(NerMethode.MUSTER, "iban", IBAN, 6),
+                                                    (NerMethode.LLM, "iban", IBAN, 6)], "1")
+    r = client.post(f"/dokumente/{d.id}/entitaeten/loeschen", data={"methode": "llm"})
+    assert r.status_code == 303 and r.headers["location"] == f"/dokumente/{d.id}"
+    assert [x.methode for x in session.exec(select(Entitaet)).all()] == [NerMethode.MUSTER]
+    assert client.post(f"/dokumente/{d.id}/entitaeten/loeschen", data={"methode": "quatsch"}).status_code == 400
+    client.post(f"/dokumente/{d.id}/entitaeten/loeschen", data={"methode": "alle"})
+    assert session.exec(select(Entitaet)).all() == []
+    assert client.post("/dokumente/99999/entitaeten/loeschen", data={"methode": "alle"}).status_code == 404
+
+
+def test_entitaeten_seite_zeigt_eigene_labels(client, session):
+    _dok(session, "a.txt", "AZ 12", [(NerMethode.LLM, "aktenzeichen", "AZ 12", 0)], "1")
+    _dok(session, "b.txt", "Anna", [(NerMethode.GLINER, "person", "Anna", 0)], "2")
+    assert '<option value="aktenzeichen"' in client.get("/entitaeten").text
+    gefiltert = client.get("/entitaeten?label=aktenzeichen").text
+    assert "AZ 12" in gefiltert and "b.txt" not in gefiltert

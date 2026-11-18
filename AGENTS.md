@@ -57,6 +57,7 @@ app/
                            normalisiere(label, text)
     gliner.py              GliNER2 lokal, englische Modell-Labels -> deutsche Labels
     llm_ner.py             LLM-Extraktion mit Offset-Suche (Wortgrenzen)
+    labels.py              freie Labels ("name=englischer Begriff") parsen, Schwelle pruefen
     treffer.py             Treffer-Datentyp
     ablauf.py              ner_starten (Methoden, Labels, Vergleich)
 
@@ -121,6 +122,16 @@ docs/superpowers/                Spec, Plan, Spike-Ergebnisse
   dieselbe Funktion `normalisiere(label, text)` (None fuer person/organisation/ort); sonst zerfiele dieselbe IBAN je Methode
   in Gruppen. Telefon-Treffer, die Datum/Geldbetrag
   ueberlappen, werden verworfen (phonenumbers erkennt "03.03.2024" als Nummer). Bekannte Eigenheit: GliNER labelt IBANs gelegentlich als `geldbetrag`.
+  **Labels sind frei** (GUI-Formular und `vfm ner --labels`, `app/ner/labels.py`): `name` oder
+  `name=englischer Begriff`; GliNER nutzt den Begriff, sonst `GLINER_LABELS`, sonst den Namen
+  (bekannte Labels ohne GliNER-Begriff wie iban/telefon/email ueberspringt GliNER). Schwelle per
+  `--schwelle`/Formular, Default `GLINER_SCHWELLE` (0.5). Labels und Schwelle stehen in
+  `Lauf.roh_output` und werden auf der Dokumentseite angezeigt. Ein Lauf ersetzt die Treffer der
+  Methode (keine Varianten nebeneinander).
+- **Loeschen je Dokument** (GUI): Entitaeten je Methode (`entitaeten_loeschen`, aktive Extraktion)
+  und Embeddings (`embeddings_loeschen`, aktuelles Modell oder alle). Protokolliert als Lauf
+  `loeschen:ner:<methode>` bzw. `loeschen:embed`; `_ner_vorhanden` zaehlt nur ERFOLG-Laeufe nach dem
+  letzten Loeschen, damit "NER fuer alle" Geloeschtes wieder auffuellt.
 - **SQL read-only**: `app/sql/abfrage.py` erlaubt genau **eine** Anweisung, laeuft in einer
   read-only Transaktion ueber `SQL_READONLY_URL` und die Postgres-Rolle `vfm_leser`
   (Migration 0001: nur SELECT, `statement_timeout` 10 s). `SQL_READONLY_URL` MUSS in der
