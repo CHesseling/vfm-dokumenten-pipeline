@@ -82,10 +82,11 @@ def llm_ner(
         antwort = client.chat_json(_nachrichten(teil, labels), LlmEntitaeten)
         for e in antwort.entitaeten:
             wert = e.text.strip()
-            if e.label not in namen or not wert or wert not in text:
+            label = e.label.strip().lower()
+            if label not in namen or not wert or wert not in text:
                 verworfen += 1
                 continue
-            gefragt.add((e.label, wert))
+            gefragt.add((label, wert))
     treffer = [
         Treffer(label, m.group(), m.start(), m.end())
         for label, wert in sorted(gefragt)

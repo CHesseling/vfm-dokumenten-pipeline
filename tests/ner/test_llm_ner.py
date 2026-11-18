@@ -58,3 +58,8 @@ def test_bekanntes_label_behaelt_erklaerung():
     client = FakeClient()
     llm_ner(client, "Text.", [LabelWunsch("person")])
     assert "- person: Namen von Personen" in client.nachrichten[0]["content"]
+
+
+def test_label_gross_geschrieben_wird_angenommen():
+    treffer = llm_ner(FakeClient(("Behörde ", "Stadtamt")), "Das Stadtamt schrieb.", [LabelWunsch("behörde")])
+    assert [(t.label, t.text) for t in treffer] == [("behörde", "Stadtamt")]

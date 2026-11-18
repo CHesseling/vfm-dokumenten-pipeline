@@ -77,6 +77,9 @@ vfm ner --methode llm --dokument <ID> --labels "aktenzeichen, fahrzeug" --alle-n
 - Ohne englischen Begriff geht der deutsche Name an GliNER – vergleiche, wie viel schlechter das klappt.
 - `iban`, `telefon` und `email` erkennt GliNER nur, wenn du einen Begriff angibst (`iban=bank account number`);
   sonst sind sie Sache der Muster.
+- Mit `--labels` oder `--schwelle` rechnet `vfm ner` neu, auch ohne `--alle-neu`.
+- Hat eine Methode keines deiner Labels (z. B. Muster bei nur eigenen Labels), wird sie uebersprungen –
+  ihre bisherigen Treffer bleiben stehen.
 - Ein neuer Lauf ersetzt die Treffer derselben Methode. Ueber den Treffern steht, mit welcher Schwelle und
   welchen Labels sie entstanden sind.
 

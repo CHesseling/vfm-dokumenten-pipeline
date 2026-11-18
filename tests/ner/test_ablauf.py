@@ -180,3 +180,19 @@ def test_lauf_mit_null_treffern_bleibt_vorhanden(session, s):
     _extraktion(session, "Hier steht nichts Erkennbares.")
     ner_ausfuehren(session, s, {NerMethode.MUSTER})
     assert ner_ausfuehren(session, s, {NerMethode.MUSTER}).vorhanden == 1
+
+
+def test_methode_ohne_nutzbare_labels_laesst_treffer_stehen(session, s, gliner_fake):
+    _, e = _extraktion(session, f"Konto {IBAN} bitte.")
+    ner_ausfuehren(session, s, {NerMethode.MUSTER})
+    session.add(Entitaet(textextraktion_id=e.id, methode=NerMethode.GLINER, label="person", text="Konto", start=0, ende=5))
+    session.commit()
+    bilanz = ner_ausfuehren(session, s, {NerMethode.MUSTER, NerMethode.GLINER}, labels=labels_parsen("aktenzeichen=file number, iban"),
+                            nur_fehlende=False)
+    # Muster hat "iban" -> laeuft; GliNER hat "aktenzeichen" -> laeuft
+    assert bilanz.uebersprungen == 0
+    bilanz = ner_ausfuehren(session, s, {NerMethode.MUSTER}, labels=labels_parsen("aktenzeichen"), nur_fehlende=False)
+    assert bilanz.uebersprungen == 1
+    assert session.query(Entitaet).filter_by(methode=NerMethode.MUSTER).count() == 1  # IBAN bleibt
+    bilanz = ner_ausfuehren(session, s, {NerMethode.GLINER}, labels=labels_parsen("iban"), nur_fehlende=False)
+    assert bilanz.uebersprungen == 1 and gliner_fake.aufrufe[-1][1] != labels_parsen("iban")

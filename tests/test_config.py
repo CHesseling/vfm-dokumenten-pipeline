@@ -159,3 +159,12 @@ def test_env_aus_repo_wenn_keine_im_arbeitsverzeichnis(arbeitsordner, tmp_path, 
 def test_gliner_schwelle_default():
     assert Settings(database_url="postgresql+psycopg://x/y", chat_base_url="http://c/v1", chat_model="c",
                     embed_base_url="http://e/v1", embed_model="e", _env_file=None).gliner_schwelle == 0.5
+
+
+@pytest.mark.parametrize("wert", ["1.5", "0"])
+def test_gliner_schwelle_ausserhalb_abgelehnt(wert):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Settings(database_url="postgresql+psycopg://x/y", chat_base_url="http://c/v1", chat_model="c",
+                 embed_base_url="http://e/v1", embed_model="e", gliner_schwelle=wert, _env_file=None)

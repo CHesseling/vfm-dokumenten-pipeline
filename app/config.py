@@ -77,6 +77,13 @@ class Settings(BaseSettings):
     rag_top_k: int = 8
     kategorien_pfad: str = "config/kategorien.yaml"
 
+    @field_validator("gliner_schwelle")
+    @classmethod
+    def _schwelle_im_bereich(cls, wert: float) -> float:
+        from app.ner.labels import schwelle_pruefen
+
+        return schwelle_pruefen(wert)
+
     @field_validator("*", mode="before")
     @classmethod
     def _leere_zeichenkette_als_none(cls, wert, info):

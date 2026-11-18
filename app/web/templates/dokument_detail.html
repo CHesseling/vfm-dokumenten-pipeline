@@ -91,7 +91,7 @@
   <label class="breit">Labels (kommagetrennt, optional mit englischem Begriff für GliNER: <code>aktenzeichen=file number</code>)
     <input type="text" name="labels" value="{{ labels_vorbelegt }}"></label>
   <label class="breit">GliNER-Schwelle
-    <input type="number" name="schwelle" value="{{ schwelle_vorbelegt }}" min="{{ schwelle_min }}" max="{{ schwelle_max }}" step="0.05"></label>
+    <input type="number" name="schwelle" value="{{ schwelle_vorbelegt }}" min="{{ schwelle_min }}" max="{{ schwelle_max }}" step="any"></label>
   <label><input type="checkbox" name="methode" value="gliner" checked> GliNER</label>
   <label><input type="checkbox" name="methode" value="muster" checked> Muster</label>
   <label><input type="checkbox" name="methode" value="llm"> LLM (langsamer)</label>

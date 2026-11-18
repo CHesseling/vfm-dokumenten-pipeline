@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from app.config import Settings
 from app.enums import LaufStatus, NerMethode
 from app.models import Dokument, Entitaet, Lauf, TextExtraktion
-from app.ner.gliner import GlinerNer
+from app.ner.gliner import GlinerNer, modell_labels
 from app.ner.llm_ner import llm_ner
 from app.ner.labels import LabelWunsch, labels_als_text
 from app.ner.muster import finde_muster, normalisiere
@@ -51,6 +51,15 @@ def _finde(methode: NerMethode, s: Settings, text: str, labels: list[LabelWunsch
         return [replace(t, normalisiert=normalisiere(t.label, t.text)) for t in treffer]
     treffer = llm_ner(chat_client(s), text, labels, statistik)
     return [replace(t, normalisiert=normalisiere(t.label, t.text)) for t in treffer]
+
+
+def _hat_labels(methode: NerMethode, labels: list[LabelWunsch] | None) -> bool:
+    """Ohne nutzbares Label wuerde ein Lauf vorhandene Treffer durch nichts ersetzen."""
+    if labels is None or methode == NerMethode.LLM:
+        return True
+    if methode == NerMethode.MUSTER:
+        return any(l.name in LABELS for l in labels)
+    return bool(modell_labels(labels))
 
 
 def _modell(methode: NerMethode, s: Settings) -> str | None:
@@ -137,6 +146,9 @@ def ner_ausfuehren(
                 session.add(Lauf(schritt=schritt, dokument_id=dok_id, provider=s.provider, modell=modell,
                                  status=LaufStatus.UEBERSPRUNGEN, fehler="leerer Text"))
                 session.commit()
+                bilanz.uebersprungen += 1
+                continue
+            if not _hat_labels(methode, labels):
                 bilanz.uebersprungen += 1
                 continue
             if nur_fehlende and _ner_vorhanden(session, ex_id, dok_id, methode, schritt):

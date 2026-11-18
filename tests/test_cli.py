@@ -241,6 +241,10 @@ def test_vfm_ner_reicht_labels_und_schwelle_durch(cli_settings, monkeypatch):
     assert r.exit_code == 0, r.output
     assert erhalten["labels"] == labels_parsen("person, aktenzeichen=file number")
     assert erhalten["schwelle"] == 0.3
+    assert erhalten["nur_fehlende"] is False  # Parameter sollen wirken, auch ohne --alle-neu
+    erhalten.clear()
+    runner.invoke(cli.app, ["ner"], obj=cli_settings)
+    assert erhalten["nur_fehlende"] is True
 
 
 def test_suche_cli_volltext_und_embed(session, cli_settings):

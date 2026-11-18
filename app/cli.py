@@ -283,7 +283,8 @@ def ner(
 
             bilanz = ner_ausfuehren(
                 session, s, methoden, dokument_id=dokument, labels=label_liste, schwelle=schwelle, bei_dokument=bei_dokument,
-                nur_fehlende=not alle_neu,
+                # eigene Labels/Schwelle sollen wirken, auch ohne --alle-neu
+                nur_fehlende=not alle_neu and labels is None and schwelle is None,
             )
         konsole.print(
             f"Dokumente: {bilanz.dokumente}, Entitäten: {bilanz.entitaeten}, "

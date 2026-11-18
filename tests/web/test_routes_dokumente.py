@@ -205,4 +205,4 @@ def test_detail_formular_vorbelegt(client, session):
     d = _dok_mit_embeddings(session)
     html = client.get(f"/dokumente/{d.id}").text
     assert 'value="person, organisation, ort, datum, geldbetrag, iban, telefon, email"' in html
-    assert 'name="schwelle"' in html and 'value="0.5"' in html
+    assert 'name="schwelle"' in html and 'value="0.5"' in html and 'step="any"' in html
