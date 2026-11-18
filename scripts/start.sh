@@ -45,6 +45,7 @@ env_setzen() {  # Schluessel in .env setzen oder anhaengen
   if grep -q "^$1=" .env; then
     sed -i.bak "s|^$1=.*|$1=$2|" .env && rm -f .env.bak
   else
+    [ -z "$(tail -c 1 .env)" ] || echo >> .env  # letzte Zeile ohne Umbruch nicht verkleben
     printf '%s=%s\n' "$1" "$2" >> .env
   fi
 }
