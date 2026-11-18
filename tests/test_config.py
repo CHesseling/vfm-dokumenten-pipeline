@@ -154,3 +154,8 @@ def test_env_aus_repo_wenn_keine_im_arbeitsverzeichnis(arbeitsordner, tmp_path, 
     _env(arbeitsordner, "CHAT_MODEL=aus-repo\n")
     monkeypatch.chdir(fremd)
     assert lade_settings().chat_model == "aus-repo"
+
+
+def test_gliner_schwelle_default():
+    assert Settings(database_url="postgresql+psycopg://x/y", chat_base_url="http://c/v1", chat_model="c",
+                    embed_base_url="http://e/v1", embed_model="e", _env_file=None).gliner_schwelle == 0.5

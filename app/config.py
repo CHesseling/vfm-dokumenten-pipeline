@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     whisper_pfad: str = "/models/whisper"
 
     gliner_model: str = "fastino/gliner2-base-v1"
+    gliner_schwelle: float = 0.5
     docling_artifacts_pfad: str = "/models/docling"
 
     chunk_zeichen: int = 1500
