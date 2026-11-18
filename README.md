@@ -128,6 +128,31 @@ Hinweis fuer SQL: Die Tabelle `analyse` muss in Anfuehrungszeichen stehen (`"ana
 In der Weboberflaeche gibt es dieselben Funktionen: Dokumente (mit Detailseite
 und Methodenvergleich), Suche, Entitaeten, SQL, Status, Upload.
 
+## Agenten anbinden (z. B. Hermes)
+
+Ein Agent wie Hermes nutzt die Pipeline ueber die HTTP-Schnittstelle `/api`:
+Suche (`/api/suche`), Frage mit Quellen (`/api/frage`), ein Dokument
+(`/api/dokumente/{id}`) und Entitaeten (`/api/entitaeten`). Die Beschreibungen
+sind bewusst ausfuehrlich und auf Deutsch, damit der Agent sie versteht. Gib ihm
+die maschinenlesbare Beschreibung `http://localhost:8999/openapi.json`;
+zum Ausprobieren im Browser: http://localhost:8999/docs.
+
+Welche Adresse der Agent nimmt, haengt davon ab, wo er laeuft:
+
+| Agent laeuft ... | Adresse |
+|---|---|
+| direkt auf demselben Rechner | `http://localhost:8999/api` |
+| in einem eigenen Docker-Container | `http://host.docker.internal:8999/api` |
+| im Compose-Netz der Pipeline (`docker network connect vfm-pipeline_default <agent-container>`) | `http://app:8000/api` |
+| auf einem anderen Rechner | `http://<IP-des-Rechners>:8999/api`, dazu in der `.env` `APP_BIND=0.0.0.0` |
+
+Eine eigene "Bridge" braucht es nicht, der Agent ruft die Schnittstelle direkt auf.
+Ist der Agent von anderen Rechnern aus erreichbar oder die Pipeline nicht nur an
+`127.0.0.1` gebunden, setze in der `.env` ein `API_TOKEN`; ohne Token ist `/api` offen.
+Der Agent schickt es dann als Kopf `Authorization: Bearer <Token>` mit.
+
+Beispielaufrufe und Fehlercodes stehen im Spickzettel [Tag 3](docs/workshop/tag3.md).
+
 ## Anbieter wechseln (Ollama oder Cortecs)
 
 Standard ist `PROVIDER=ollama` (alles lokal). Fuer den Cloud-Anbieter Cortecs
