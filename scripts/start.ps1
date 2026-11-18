@@ -3,7 +3,7 @@
 # Voraussetzung: Docker Desktop und Ollama sind installiert und laufen.
 # Laedt das Projekt nach %USERPROFILE%\vfm-pipeline, holt fehlende Ollama-Modelle,
 # zieht das fertige App-Image und startet alles. Mehrfach ausfuehren ist ok (Update).
-# Ueberschreibbar per Umgebungsvariable: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE.
+# Ueberschreibbar per Umgebungsvariable: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE, VFM_PORT (Standard 8999).
 # Kein "exit" im Skript: bei "irm | iex" wuerde das das PowerShell-Fenster schliessen.
 
 function Start-VfmPipeline {
@@ -15,7 +15,8 @@ function Start-VfmPipeline {
     $Ziel = if ($env:VFM_ZIEL) { $env:VFM_ZIEL } else { Join-Path $env:USERPROFILE "vfm-pipeline" }
     $ZipUrl = if ($env:VFM_ZIP_URL) { $env:VFM_ZIP_URL } else { "https://github.com/CHesseling/vfm-dokumenten-pipeline/archive/refs/heads/main.zip" }
     $Image = if ($env:VFM_IMAGE) { $env:VFM_IMAGE } else { "ghcr.io/chesseling/vfm-pipeline:latest" }
-    $Gui = "http://localhost:8999"
+    $Port = if ($env:VFM_PORT) { $env:VFM_PORT } else { "8999" }
+    $Gui = "http://localhost:$Port"
 
     Write-Host "==> Pruefe Voraussetzungen"
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -55,8 +56,9 @@ function Start-VfmPipeline {
             Copy-Item ".env.example" ".env"
             Write-Host "  .env aus .env.example angelegt."
         }
-        $EnvZeilen = @(Get-Content ".env" | Where-Object { $_ -notmatch '^APP_IMAGE=' })
+        $EnvZeilen = @(Get-Content ".env" | Where-Object { $_ -notmatch '^(APP_IMAGE|APP_PORT)=' })
         $EnvZeilen += "APP_IMAGE=$Image"
+        $EnvZeilen += "APP_PORT=$Port"
         # UTF-8 ohne BOM, damit docker compose die erste Zeile korrekt liest
         [System.IO.File]::WriteAllLines((Join-Path $Ziel ".env"), $EnvZeilen, (New-Object System.Text.UTF8Encoding $false))
 

@@ -4,14 +4,15 @@
 # Voraussetzung: Docker (Docker Desktop oder colima) und Ollama sind installiert und laufen.
 # Das Skript laedt das Projekt nach ~/vfm-pipeline, holt fehlende Ollama-Modelle,
 # zieht das fertige App-Image und startet alles. Mehrfach ausfuehren ist ok (Update).
-# Ueberschreibbar: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE.
+# Ueberschreibbar: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE, VFM_PORT (Standard 8999, falls belegt).
 set -euo pipefail
 
 REPO="CHesseling/vfm-dokumenten-pipeline"
 ZIEL="${VFM_ZIEL:-$HOME/vfm-pipeline}"
 ZIP_URL="${VFM_ZIP_URL:-https://github.com/${REPO}/archive/refs/heads/main.zip}"
 IMAGE="${VFM_IMAGE:-ghcr.io/chesseling/vfm-pipeline:latest}"
-GUI="http://localhost:8999"
+PORT="${VFM_PORT:-8999}"
+GUI="http://localhost:${PORT}"
 
 fehler() { echo "FEHLER: $*" >&2; exit 1; }
 
@@ -40,11 +41,15 @@ if [ ! -f .env ]; then
   cp .env.example .env
   echo "  .env aus .env.example angelegt."
 fi
-if grep -q '^APP_IMAGE=' .env; then
-  sed -i.bak "s|^APP_IMAGE=.*|APP_IMAGE=${IMAGE}|" .env && rm -f .env.bak
-else
-  printf '\n# Fertiges Image aus der Registry (von scripts/start.sh gesetzt)\nAPP_IMAGE=%s\n' "$IMAGE" >> .env
-fi
+env_setzen() {  # Schluessel in .env setzen oder anhaengen
+  if grep -q "^$1=" .env; then
+    sed -i.bak "s|^$1=.*|$1=$2|" .env && rm -f .env.bak
+  else
+    printf '%s=%s\n' "$1" "$2" >> .env
+  fi
+}
+env_setzen APP_IMAGE "$IMAGE"
+env_setzen APP_PORT "$PORT"
 
 echo "==> Pruefe Ollama-Modelle"
 vorhanden="$(ollama list | awk 'NR>1 {print $1}')"
