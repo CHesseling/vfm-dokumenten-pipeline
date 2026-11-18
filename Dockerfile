@@ -29,6 +29,7 @@ RUN uv sync --no-dev --frozen
 
 # Stufe 3: Laufzeit
 FROM python:3.12-slim
+LABEL org.opencontainers.image.source="https://github.com/CHesseling/vfm-dokumenten-pipeline"
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 \
  && rm -rf /var/lib/apt/lists/*

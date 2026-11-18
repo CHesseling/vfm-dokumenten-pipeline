@@ -23,7 +23,9 @@ services:
         # Muss zum user: unten passen (Besitzer von /data im Image)
         APP_UID: ${APP_UID:-1000}
         APP_GID: ${APP_GID:-1000}
-    image: vfm-pipeline:latest
+    # Fertiges Image aus der Registry per APP_IMAGE (scripts/start.sh setzt es);
+    # Standard ist das lokal gebaute bzw. vom USB-Stick geladene Image.
+    image: ${APP_IMAGE:-vfm-pipeline:latest}
     # Container-User ueber APP_UID/APP_GID in der .env anpassbar.
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
     env_file: .env

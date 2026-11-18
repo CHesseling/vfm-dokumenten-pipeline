@@ -83,7 +83,8 @@ alembic/versions/0001_basis.py   Basis-Schema inkl. pgvector, tsvector und Rolle
 config/kategorien.yaml           Kategorien fuer die Klassifikation
 profile/{ollama,cortecs}.env     Provider-Profile (Werte je Rolle)
 .env.example                     PROVIDER, DATABASE_URL, SQL_READONLY_URL, CORTECS_API_KEY, API_TOKEN
-scripts/                         image_bauen.sh, usb_paket_bauen.sh, einspielen.sh/.ps1,
+scripts/                         start.sh/.ps1 (Online-Einzeiler fuer Teilnehmende), image_bauen.sh,
+                                 usb_paket_bauen.sh, einspielen.sh/.ps1,
                                  modelle_laden.py (Image-Build), fixtures_erzeugen.py (Mini-Satz)
 tests/                           spiegelt app/ 1:1, plus tests/fixtures/ (mini/ = Mini-Satz)
 docs/workshop/                   Spickzettel Tag 1-3
@@ -210,6 +211,24 @@ docker cp <container>:/app/alembic/versions/<datei>.py alembic/versions/
 ```
 
 Autogenerierte Dateien pruefen (`import sqlmodel`, `nullable`, pgvector-Typen).
+
+## Online-Einzeiler (GHCR)
+
+Teilnehmende starten per `curl ... scripts/start.sh | bash` bzw. `irm ... scripts/start.ps1 | iex`
+(siehe README). Die Skripte laden `main` als ZIP nach `~/vfm-pipeline`, setzen
+`APP_IMAGE=ghcr.io/chesseling/vfm-pipeline:latest` in der `.env` (compose: `image: ${APP_IMAGE:-vfm-pipeline:latest}`,
+ohne Variable bleibt alles wie beim USB-Weg), holen fehlende Ollama-Modelle aus `profile/ollama.env`,
+`docker compose pull` + `up -d --no-build` und warten auf `/gesundheit`. Voraussetzungen (Docker,
+Ollama) werden nur geprueft, nicht installiert. Das Image muss nach jeder Aenderung neu nach GHCR:
+
+```
+gh auth token | docker login ghcr.io -u CHesseling --password-stdin   # Token braucht write:packages
+docker buildx build --builder <docker-container-builder> --platform linux/amd64,linux/arm64 \
+  --provenance=false --sbom=false -t ghcr.io/chesseling/vfm-pipeline:latest --push .
+```
+
+Das Paket muss auf GitHub (Package settings) **public** sein, sonst scheitert der Pull ohne Login.
+`start.ps1` ist nie mit echtem PowerShell gelaufen.
 
 ## Deployment und USB-Paket
 

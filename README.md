@@ -30,6 +30,25 @@ Jeder Schritt hat einen eigenen Befehl (`vfm ingest`, `vfm ner`, `vfm embed`,
 Du brauchst: Docker (Docker Desktop oder colima), mindestens 8 GB Arbeitsspeicher
 fuer Docker, ca. 15 GB freien Platz und Ollama (https://ollama.com).
 
+### Schnellstart: ein Befehl (online)
+
+Vorher installieren und starten: Docker Desktop (https://www.docker.com/products/docker-desktop/)
+und Ollama (https://ollama.com/download). Dann im Terminal:
+
+- Mac/Linux:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/CHesseling/vfm-dokumenten-pipeline/main/scripts/start.sh | bash
+  ```
+- Windows (PowerShell):
+  ```powershell
+  irm https://raw.githubusercontent.com/CHesseling/vfm-dokumenten-pipeline/main/scripts/start.ps1 | iex
+  ```
+
+Der Befehl legt das Projekt in `~/vfm-pipeline` (Windows: `%USERPROFILE%\vfm-pipeline`) ab,
+laedt die Ollama-Modelle und das fertige App-Image (zusammen bis zu 20 GB, am besten
+vorher im heimischen WLAN), startet alles und oeffnet http://localhost:8999.
+Erneut ausfuehren aktualisiert auf den neuesten Stand; deine `.env` und `material/` bleiben.
+
 ### Weg A: mit dem USB-Stick (ohne Internet)
 
 1. Stecke den Stick ein und starte Docker (und Ollama).
