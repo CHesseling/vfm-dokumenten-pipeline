@@ -2,7 +2,8 @@
 # Einrichten und Starten in einem Zug (Mac/Linux), fuer Teilnehmende:
 #   curl -fsSL https://raw.githubusercontent.com/CHesseling/vfm-dokumenten-pipeline/main/scripts/start.sh | bash
 # Voraussetzung: Docker (Docker Desktop oder colima) oder Podman (podman machine bzw.
-# Linux) sowie Ollama sind installiert und laufen.
+# Linux) laeuft. Ollama fuer die lokalen Modelle; ohne Ollama geht es mit Cortecs
+# (PROVIDER=cortecs in der .env, siehe README).
 # Das Skript laedt das Projekt nach ~/vfm-pipeline, holt fehlende Ollama-Modelle,
 # zieht das fertige App-Image und startet alles. Mehrfach ausfuehren ist ok (Update).
 # Option --build: App-Image lokal bauen statt ziehen (dauert, braucht Internet):
@@ -42,8 +43,15 @@ if [ -z "$CE" ]; then
 fi
 echo "  Container-Engine: $CE"
 "$CE" compose version > /dev/null 2>&1 || fehler "'$CE compose' fehlt. Docker Desktop aktualisieren bzw. fuer Podman docker-compose oder podman-compose installieren."
-command -v ollama > /dev/null || fehler "Ollama fehlt. Bitte installieren: https://ollama.com/download"
-ollama list > /dev/null 2>&1 || fehler "Ollama laeuft nicht. Bitte die Ollama-App starten und das Skript erneut ausfuehren."
+# Ollama ist optional: ohne lokale Modelle geht es mit Cortecs (README "Ohne lokale Modelle")
+OLLAMA_OK=0
+if ! command -v ollama > /dev/null; then
+  echo "  Ollama fehlt (https://ollama.com/download) - ohne lokale Modelle siehe README."
+elif ! ollama list > /dev/null 2>&1; then
+  echo "  Ollama laeuft nicht (Ollama-App starten) - ohne lokale Modelle siehe README."
+else
+  OLLAMA_OK=1
+fi
 command -v unzip > /dev/null || fehler "'unzip' fehlt."
 
 echo "==> Lade Projekt nach $ZIEL"
@@ -78,16 +86,24 @@ else
 fi
 env_setzen APP_PORT "$PORT"
 
-echo "==> Pruefe Ollama-Modelle"
-vorhanden="$(ollama list | awk 'NR>1 {print $1}')"
-for modell in $(grep -E '^(CHAT|VISION|EMBED)_MODEL=' profile/ollama.env | cut -d= -f2 | sort -u); do
-  if printf '%s\n' "$vorhanden" | grep -qxE "${modell}(:latest)?"; then
-    echo "  $modell vorhanden"
-  else
-    echo "  lade $modell (mehrere GB, dauert) ..."
-    ollama pull "$modell"
-  fi
-done
+if grep -qE '^PROVIDER=cortecs' .env; then
+  echo "==> PROVIDER=cortecs in der .env: Ollama-Modelle werden nicht gebraucht"
+elif [ "$OLLAMA_OK" = 0 ]; then
+  echo "==> HINWEIS: Ohne Ollama melden chat, vision und embed in 'vfm check' Fehler."
+  echo "    Entweder Ollama installieren/starten und das Skript erneut ausfuehren,"
+  echo "    oder in $ZIEL/.env PROVIDER=cortecs und CORTECS_API_KEY eintragen (README)."
+else
+  echo "==> Pruefe Ollama-Modelle"
+  vorhanden="$(ollama list | awk 'NR>1 {print $1}')"
+  for modell in $(grep -E '^(CHAT|VISION|EMBED)_MODEL=' profile/ollama.env | cut -d= -f2 | sort -u); do
+    if printf '%s\n' "$vorhanden" | grep -qxE "${modell}(:latest)?"; then
+      echo "  $modell vorhanden"
+    else
+      echo "  lade $modell (mehrere GB, dauert) ..."
+      ollama pull "$modell"
+    fi
+  done
+fi
 
 if [ "$BAUEN" = 1 ]; then
   echo "==> Lade Datenbank-Image"

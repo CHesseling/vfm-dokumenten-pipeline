@@ -29,7 +29,8 @@ Jeder Schritt hat einen eigenen Befehl (`vfm ingest`, `vfm ner`, `vfm embed`,
 
 Du brauchst: Docker (Docker Desktop oder colima) oder Podman, mindestens 8 GB
 Arbeitsspeicher fuer Docker bzw. die Podman-Machine, ca. 15 GB freien Platz und
-Ollama (https://ollama.com).
+Ollama (https://ollama.com). Ohne Ollama geht es mit einem Cortecs-Schluessel,
+siehe "Ohne lokale Modelle arbeiten".
 
 **Podman statt Docker:** Alles funktioniert gleich. Die Skripte erkennen selbst, ob
 Docker oder Podman laeuft (erzwingen: `VFM_ENGINE=podman`). Bei den Befehlen
@@ -210,6 +211,41 @@ Einzelne Werte (z. B. `CHAT_MODEL`) kannst du in der `.env` ueberschreiben; sie
 haben Vorrang vor den Profilen in `profile/`. Das gilt auch fuer `-p cortecs`: Der
 Schalter waehlt nur das Profil, Werte aus `.env` oder der Umgebung schlagen es
 weiterhin.
+
+### Ohne lokale Modelle arbeiten
+
+Kein Ollama installiert, zu wenig Arbeitsspeicher oder die Modelle passen nicht
+auf die Platte? Dann uebernimmt Cortecs Chat, Bildbeschreibung und Embeddings.
+Du brauchst dafuer nur einen Cortecs-Schluessel. Texterkennung (Docling),
+Transkription (Whisper), GliNER und Rerank laufen weiter im Container, die
+Modelle dafuer stecken im Image.
+
+Umgestellt wird von Hand in der Datei `.env` im Projektordner
+(`~/vfm-pipeline/.env`, Windows: `%USERPROFILE%\vfm-pipeline\.env`):
+
+1. Datei oeffnen, im Terminal **auf dem Rechner** (nicht im Browser-Terminal, siehe unten):
+   - Mac/Linux: `cd ~/vfm-pipeline && nano .env`
+   - Windows: `notepad $env:USERPROFILE\vfm-pipeline\.env`
+2. Die Zeile `PROVIDER=ollama` aendern in `PROVIDER=cortecs`.
+3. Hinter `CORTECS_API_KEY=` deinen Schluessel eintragen, ohne Leerzeichen und
+   ohne Anfuehrungszeichen: `CORTECS_API_KEY=sk-...`
+4. Speichern. In nano: `Strg+O`, `Enter`, dann `Strg+X` zum Beenden.
+5. Container mit der neuen `.env` starten: `docker compose up -d`
+   (`docker compose restart` reicht **nicht**, es liest die `.env` nicht neu ein).
+6. Pruefen: `docker compose exec app vfm check`. Oben steht jetzt
+   `Provider-Profil: cortecs`, chat, vision und embed zeigen die Cortecs-Modelle
+   (z. B. `qwen3.5-9b`, `bge-m3`) und sollten **OK** melden.
+
+Die Startskripte (`start.sh`/`start.ps1`) laufen auch ohne Ollama durch; sie
+weisen nur darauf hin. Zurueck zu den lokalen Modellen: `PROVIDER=ollama`, wieder
+`docker compose up -d`. Wer vorher schon Embeddings erzeugt hat, laesst nach
+jedem Wechsel einmal `vfm embed` laufen (siehe unten).
+
+Warum nicht im Browser-Terminal? Die `.env` liegt nur auf deinem Rechner. Der
+Container bekommt ihre Werte beim Start als Umgebungsvariablen. Ein `nano .env`
+im Browser-Terminal legt eine neue, wirkungslose Datei im Container an. Fuer
+einen einzelnen Versuch geht dort aber: `vfm -p cortecs check` bzw.
+`CORTECS_API_KEY=sk-... vfm -p cortecs check`.
 
 Wichtig: Embeddings werden je Modell gespeichert. Wechselst du das
 Embedding-Modell, laeuft `vfm embed` einmal neu; die Suche nutzt immer das

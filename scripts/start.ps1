@@ -1,6 +1,7 @@
 # Einrichten und Starten in einem Zug (Windows PowerShell), fuer Teilnehmende:
 #   irm https://raw.githubusercontent.com/CHesseling/vfm-dokumenten-pipeline/main/scripts/start.ps1 | iex
-# Voraussetzung: Docker Desktop (oder Podman Desktop) und Ollama sind installiert und laufen.
+# Voraussetzung: Docker Desktop (oder Podman Desktop) laeuft. Ollama fuer die lokalen
+# Modelle; ohne Ollama geht es mit Cortecs (PROVIDER=cortecs in der .env, siehe README).
 # Laedt das Projekt nach %USERPROFILE%\vfm-pipeline, holt fehlende Ollama-Modelle,
 # zieht das fertige App-Image und startet alles. Mehrfach ausfuehren ist ok (Update).
 # Ueberschreibbar per Umgebungsvariable: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE, VFM_PORT (Standard 8999),
@@ -47,11 +48,14 @@ function Start-VfmPipeline {
     Write-Host "  Container-Engine: $CE"
     & $CE compose version *> $null
     if ($LASTEXITCODE -ne 0) { throw "'$CE compose' fehlt. Docker Desktop aktualisieren bzw. fuer Podman docker-compose installieren." }
+    # Ollama ist optional: ohne lokale Modelle geht es mit Cortecs (README "Ohne lokale Modelle")
+    $OllamaOk = $false
     if (-not (Get-Command ollama -ErrorAction SilentlyContinue)) {
-        throw "Ollama fehlt. Bitte installieren: https://ollama.com/download"
+        Write-Host "  Ollama fehlt (https://ollama.com/download) - ohne lokale Modelle siehe README."
+    } else {
+        ollama list *> $null
+        if ($LASTEXITCODE -eq 0) { $OllamaOk = $true } else { Write-Host "  Ollama laeuft nicht (Ollama-App starten) - ohne lokale Modelle siehe README." }
     }
-    ollama list *> $null
-    if ($LASTEXITCODE -ne 0) { throw "Ollama laeuft nicht. Bitte die Ollama-App starten und den Befehl erneut ausfuehren." }
 
     Write-Host "==> Lade Projekt nach $Ziel"
     $Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("vfm-" + [guid]::NewGuid())
@@ -84,18 +88,26 @@ function Start-VfmPipeline {
         # UTF-8 ohne BOM, damit docker compose die erste Zeile korrekt liest
         [System.IO.File]::WriteAllLines((Join-Path $Ziel ".env"), $EnvZeilen, (New-Object System.Text.UTF8Encoding $false))
 
-        Write-Host "==> Pruefe Ollama-Modelle"
-        $Vorhanden = @(ollama list | Select-Object -Skip 1 | ForEach-Object { ($_ -split '\s+')[0] })
-        $Modelle = Get-Content "profile\ollama.env" |
-            Where-Object { $_ -match '^(CHAT|VISION|EMBED)_MODEL=' } |
-            ForEach-Object { ($_ -split '=', 2)[1].Trim() } | Sort-Object -Unique
-        foreach ($Modell in $Modelle) {
-            if ($Vorhanden -contains $Modell -or $Vorhanden -contains "${Modell}:latest") {
-                Write-Host "  $Modell vorhanden"
-            } else {
-                Write-Host "  lade $Modell (mehrere GB, dauert) ..."
-                ollama pull $Modell
-                if ($LASTEXITCODE -ne 0) { throw "ollama pull $Modell fehlgeschlagen." }
+        if (Select-String -Path ".env" -Pattern '^PROVIDER=cortecs' -Quiet) {
+            Write-Host "==> PROVIDER=cortecs in der .env: Ollama-Modelle werden nicht gebraucht"
+        } elseif (-not $OllamaOk) {
+            Write-Host "==> HINWEIS: Ohne Ollama melden chat, vision und embed in 'vfm check' Fehler."
+            Write-Host "    Entweder Ollama installieren/starten und den Befehl erneut ausfuehren,"
+            Write-Host "    oder in $Ziel\.env PROVIDER=cortecs und CORTECS_API_KEY eintragen (README)."
+        } else {
+            Write-Host "==> Pruefe Ollama-Modelle"
+            $Vorhanden = @(ollama list | Select-Object -Skip 1 | ForEach-Object { ($_ -split '\s+')[0] })
+            $Modelle = Get-Content "profile\ollama.env" |
+                Where-Object { $_ -match '^(CHAT|VISION|EMBED)_MODEL=' } |
+                ForEach-Object { ($_ -split '=', 2)[1].Trim() } | Sort-Object -Unique
+            foreach ($Modell in $Modelle) {
+                if ($Vorhanden -contains $Modell -or $Vorhanden -contains "${Modell}:latest") {
+                    Write-Host "  $Modell vorhanden"
+                } else {
+                    Write-Host "  lade $Modell (mehrere GB, dauert) ..."
+                    ollama pull $Modell
+                    if ($LASTEXITCODE -ne 0) { throw "ollama pull $Modell fehlgeschlagen." }
+                }
             }
         }
 
