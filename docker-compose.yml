@@ -42,6 +42,9 @@ services:
       TERMINAL_PORT: ${TERMINAL_PORT:-7681}
     # Init-Prozess raeumt beendete Terminal-Sitzungen (ttyd laeuft neben uvicorn)
     init: true
+    # Stuerzt ein Lauf den Prozess ab (z. B. SIGILL in einer nativen Bibliothek),
+    # kommen Oberflaeche und Terminal von selbst wieder; `compose stop` bleibt gestoppt.
+    restart: unless-stopped
     extra_hosts:
       # Zugriff auf Ollama, das direkt auf dem Host laeuft
       - "host.docker.internal:host-gateway"
