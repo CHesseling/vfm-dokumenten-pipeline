@@ -29,8 +29,15 @@ services:
     image: ${APP_IMAGE:-vfm-pipeline:latest}
     # Container-User ueber APP_UID/APP_GID in der .env anpassbar.
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
-    env_file: .env
+    # Kein env_file: die .env ist unten nach /app/.env eingebunden und wird von der
+    # App als Datei gelesen. So wirken Aenderungen (z. B. per nano im Browser-Terminal)
+    # fuer `vfm ...` sofort, fuer die Oberflaeche nach `compose restart app`.
+    # Nur was entrypoint.sh als Shell-Variable braucht, kommt hier herein
+    # (compose liest dafuer dieselbe .env).
     environment:
+      TERMINAL: ${TERMINAL:-an}
+      TERMINAL_USER: ${TERMINAL_USER:-admin}
+      TERMINAL_PASS: ${TERMINAL_PASS:-}
       # Port des Browser-Terminals auf dem Rechner (fuer den Link /terminal)
       TERMINAL_PORT: ${TERMINAL_PORT:-7681}
     # Init-Prozess raeumt beendete Terminal-Sitzungen (ttyd laeuft neben uvicorn)
@@ -51,6 +58,13 @@ services:
       - ./material:/material:z
       # Frage und Kategorien der Klassifikation aenderbar, ohne das Image neu zu bauen
       - ./config:/app/config:ro,z
+      # Lang-Syntax: fehlt die .env, bricht compose ab, statt einen Ordner .env anzulegen
+      - type: bind
+        source: ./.env
+        target: /app/.env
+        bind:
+          create_host_path: false
+          selinux: z
 
   # Optional: Ollama im Container statt auf dem Host
   # (docker compose --profile ollama up -d bzw. podman compose ...)

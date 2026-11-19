@@ -226,6 +226,12 @@ Dockerfile, `ARG TTYD_VERSION`) neben uvicorn auf Port 7681, Shell als `appuser`
 auf `<host>:TERMINAL_PORT` weiter. Schalter `TERMINAL=aus`, Login per `TERMINAL_PASS`.
 `init: true` in compose, damit beendete Sitzungen nicht als Zombies bleiben.
 
+`.env` kommt nicht per `env_file` in den Container, sondern ist als Datei nach `/app/.env`
+eingebunden (Lang-Syntax, `create_host_path: false`); `Settings` liest sie direkt. Aenderungen
+wirken fuer `vfm` sofort, fuer uvicorn nach `compose restart app` (`get_settings` ist gecacht).
+Nur `TERMINAL*` reicht compose per `environment:` durch (entrypoint.sh liest sie als
+Shell-Variablen). Neue Variablen, die ausserhalb von `Settings` gebraucht werden, dort ergaenzen.
+
 GUI auf Port 8999 (`docker-compose.yml`), standardmaessig nur an 127.0.0.1 gebunden (`APP_BIND`, `OLLAMA_BIND`). Migrationen im laufenden Container erzeugen
 und zurueckkopieren (DATABASE_URL zeigt auf `db`, nicht `localhost`):
 

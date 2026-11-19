@@ -105,7 +105,9 @@ Die Oberflaeche erreichst du unter **http://localhost:8999**.
 
 Unter **http://localhost:7681** (Link "Terminal" oben in der Oberflaeche) laeuft
 eine Shell im App-Container: `vfm ...`, `alembic`, die Datenbank per
-`psql "${DATABASE_URL/+psycopg/}"`, Dateien unter `/data` und `/material`. Die Shell laeuft als
+`psql "${DATABASE_URL/+psycopg/}"`, Dateien unter `/data` und `/material` und
+die Einstellungen in `/app/.env` (dieselbe Datei wie `.env` im Projektordner,
+mit `nano .env` bearbeitbar). Die Shell laeuft als
 `appuser`; mit `sudo` geht alles als root (z. B. `sudo apt-get install ...`,
 bleibt nur bis zum Neustart des Containers).
 
@@ -208,7 +210,8 @@ Cortecs-Werte (Modellnamen, Adressen) in `profile/cortecs.env` sind noch **nicht
 geprueft**. Wenn `vfm check` Fehler zeigt, bitte melden.
 
 Einzelne Werte (z. B. `CHAT_MODEL`) kannst du in der `.env` ueberschreiben; sie
-haben Vorrang vor den Profilen in `profile/`. Das gilt auch fuer `-p cortecs`: Der
+haben Vorrang vor den Profilen in `profile/`. Umgebungsvariablen (z. B.
+`docker compose exec -e CHAT_MODEL=... app vfm ...`) schlagen wiederum die `.env`. Das gilt auch fuer `-p cortecs`: Der
 Schalter waehlt nur das Profil, Werte aus `.env` oder der Umgebung schlagen es
 weiterhin.
 
@@ -221,31 +224,40 @@ Transkription (Whisper), GliNER und Rerank laufen weiter im Container, die
 Modelle dafuer stecken im Image.
 
 Umgestellt wird von Hand in der Datei `.env` im Projektordner
-(`~/vfm-pipeline/.env`, Windows: `%USERPROFILE%\vfm-pipeline\.env`):
+(`~/vfm-pipeline/.env`, Windows: `%USERPROFILE%\vfm-pipeline\.env`). Dieselbe
+Datei siehst du im Browser-Terminal als `/app/.env`; du kannst sie dort oder auf
+dem Rechner bearbeiten.
 
-1. Datei oeffnen, im Terminal **auf dem Rechner** (nicht im Browser-Terminal, siehe unten):
-   - Mac/Linux: `cd ~/vfm-pipeline && nano .env`
-   - Windows: `notepad $env:USERPROFILE\vfm-pipeline\.env`
+1. Datei oeffnen:
+   - im Browser-Terminal (Link "Terminal" in der Oberflaeche): `nano .env`
+   - oder auf dem Rechner, Mac/Linux: `cd ~/vfm-pipeline && nano .env`,
+     Windows: `notepad $env:USERPROFILE\vfm-pipeline\.env`
 2. Die Zeile `PROVIDER=ollama` aendern in `PROVIDER=cortecs`.
 3. Hinter `CORTECS_API_KEY=` deinen Schluessel eintragen, ohne Leerzeichen und
    ohne Anfuehrungszeichen: `CORTECS_API_KEY=sk-...`
 4. Speichern. In nano: `Strg+O`, `Enter`, dann `Strg+X` zum Beenden.
-5. Container mit der neuen `.env` starten: `docker compose up -d`
-   (`docker compose restart` reicht **nicht**, es liest die `.env` nicht neu ein).
-6. Pruefen: `docker compose exec app vfm check`. Oben steht jetzt
-   `Provider-Profil: cortecs`, chat, vision und embed zeigen die Cortecs-Modelle
-   (z. B. `qwen3.5-9b`, `bge-m3`) und sollten **OK** melden.
+5. Pruefen: `vfm check` (im Browser-Terminal) bzw. `docker compose exec app vfm check`.
+   Oben steht jetzt `Provider-Profil: cortecs`, chat, vision und embed zeigen die
+   Cortecs-Modelle (z. B. `qwen3.5-9b`, `bge-m3`) und sollten **OK** melden.
+   Alle `vfm`-Befehle nutzen die Aenderung sofort.
+6. Die Oberflaeche liest die `.env` nur beim Start. Auf dem Rechner:
+   `docker compose restart app`.
 
 Die Startskripte (`start.sh`/`start.ps1`) laufen auch ohne Ollama durch; sie
-weisen nur darauf hin. Zurueck zu den lokalen Modellen: `PROVIDER=ollama`, wieder
-`docker compose up -d`. Wer vorher schon Embeddings erzeugt hat, laesst nach
+weisen nur darauf hin. Zurueck zu den lokalen Modellen: `PROVIDER=ollama`, dann
+wieder Schritt 5 und 6. Wer vorher schon Embeddings erzeugt hat, laesst nach
 jedem Wechsel einmal `vfm embed` laufen (siehe unten).
 
-Warum nicht im Browser-Terminal? Die `.env` liegt nur auf deinem Rechner. Der
-Container bekommt ihre Werte beim Start als Umgebungsvariablen. Ein `nano .env`
-im Browser-Terminal legt eine neue, wirkungslose Datei im Container an. Fuer
-einen einzelnen Versuch geht dort aber: `vfm -p cortecs check` bzw.
-`CORTECS_API_KEY=sk-... vfm -p cortecs check`.
+Hinweise zur `.env` im Browser-Terminal:
+- "Permission denied" beim Speichern (Linux, je nach Benutzer-Zuordnung):
+  `sudo nano .env`.
+- Mit nano bearbeiten, nicht mit Werkzeugen, die die Datei ersetzen statt
+  ueberschreiben (`sed -i`, manche vim-Einstellungen): Der Container saehe sonst
+  weiter die alte Fassung.
+- Die Terminal-Schalter (`TERMINAL...`) und Ports (`APP_PORT`, `APP_BIND` usw.)
+  wirken erst nach `docker compose up -d` auf dem Rechner.
+- Nur ausprobieren, ohne die Datei zu aendern:
+  `CORTECS_API_KEY=sk-... vfm -p cortecs check`.
 
 Wichtig: Embeddings werden je Modell gespeichert. Wechselst du das
 Embedding-Modell, laeuft `vfm embed` einmal neu; die Suche nutzt immer das
