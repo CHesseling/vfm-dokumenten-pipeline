@@ -228,6 +228,8 @@ Browser-Terminal: `entrypoint.sh` startet ttyd (statisches Release-Binary, sha25
 Dockerfile, `ARG TTYD_VERSION`) neben uvicorn auf Port 7681, Shell als `appuser` mit
 `sudo` ohne Passwort (`/etc/sudoers.d/appuser`). `/terminal` (`routes_terminal.py`) leitet
 auf `<host>:TERMINAL_PORT` weiter. Schalter `TERMINAL=aus`, Login per `TERMINAL_PASS`.
+ttyd laeuft mit `--check-origin` (sonst oeffnet jede besuchte Webseite per WebSocket eine
+Shell auf localhost:7681; ohne die Option getestet: fremder Origin bekam 101).
 `init: true` in compose, damit beendete Sitzungen nicht als Zombies bleiben.
 
 `.env` kommt nicht per `env_file` in den Container, sondern ist als Datei nach `/app/.env`

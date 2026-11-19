@@ -8,7 +8,9 @@ case "$(printf '%s' "${TERMINAL:-an}" | tr 'A-Z' 'a-z')" in
   aus|0|false|nein|off) ;;
   *)
     if command -v ttyd > /dev/null; then
-      set -- ttyd --port 7681 --writable --cwd /app -t titleFixed=vfm-pipeline
+      # --check-origin: sonst koennte jede Webseite im Browser per WebSocket auf
+      # localhost:7681 eine Shell (mit sudo) oeffnen.
+      set -- ttyd --port 7681 --writable --check-origin --cwd /app -t titleFixed=vfm-pipeline
       if [ -n "${TERMINAL_PASS:-}" ]; then
         set -- "$@" --credential "${TERMINAL_USER:-admin}:${TERMINAL_PASS}"
       fi
