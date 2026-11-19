@@ -1,5 +1,3 @@
-import pytest
-
 from app.providers.llm_client import ProviderFehler
 from app.providers.url import ohne_zugangsdaten
 

@@ -4,7 +4,7 @@ import app.ner.ablauf as ablauf
 from app.config import Settings
 from app.enums import DokumentTyp, ExtraktionsMethode, LaufStatus, NerMethode
 from app.ner.ablauf import entitaeten_loeschen, ner_ausfuehren, vergleich
-from app.ner.labels import LabelWunsch, labels_parsen
+from app.ner.labels import labels_parsen
 from app.ner.llm_ner import LlmEntitaeten, LlmEntitaet
 from app.models import Dokument, Entitaet, Lauf, TextExtraktion
 from tests.conftest import TEST_DATABASE_URL

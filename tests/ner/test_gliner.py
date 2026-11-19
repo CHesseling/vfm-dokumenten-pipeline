@@ -3,7 +3,7 @@ import re
 import pytest
 
 import app.ner.gliner as gl
-from app.ner.gliner import GLINER_LABELS, GlinerNer
+from app.ner.gliner import GlinerNer
 from app.ner.labels import LabelWunsch, labels_parsen
 
 

@@ -1,5 +1,3 @@
-import threading
-
 import httpx
 import pytest
 import respx

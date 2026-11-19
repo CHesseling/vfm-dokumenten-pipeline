@@ -1,6 +1,5 @@
 """Verbindungs- und Modellpruefung je Rolle (Grundlage fuer `vfm check`)."""
 
-import base64
 import io
 from dataclasses import dataclass
 from pathlib import Path

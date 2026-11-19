@@ -32,7 +32,7 @@ def vorbereiten(session, modell="b", vektoren=None):
 
 
 def test_semantisch_nur_aktuelles_modell(session):
-    chunks = vorbereiten(session, "b")
+    vorbereiten(session, "b")
     # Modell "a" mit ANDERER Dimension und Chunks, die sonst ganz vorn laegen
     andere = chunks_anlegen(session, ["a-chunk"], sha="s2")
     session.add(Embedding(chunk_id=andere[0].id, modell="a", vektor=[1.0, 0.0, 0.0]))

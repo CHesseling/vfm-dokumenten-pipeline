@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 
 import psycopg
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 
 from app.config import Settings

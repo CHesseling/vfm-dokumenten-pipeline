@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
-from sqlalchemy import distinct, func, select
+from sqlalchemy import select
 from sqlmodel import Session
 
 from app.config import Settings, lade_settings

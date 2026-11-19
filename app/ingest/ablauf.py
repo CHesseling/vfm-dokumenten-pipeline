@@ -21,7 +21,7 @@ from app.ingest.dateitypen import erkenne_typ
 from app.ingest.eml import EmlInhalt, eml_lesen
 from app.ingest.office import office_docling
 from app.ingest.pdf import pdf_docling, pdf_schnell, pdf_vision
-from app.ingest.speichern import dokument_speichern, extraktion_speichern, lesen_datei
+from app.ingest.speichern import dokument_speichern, extraktion_speichern
 from app.ingest.text import text_lesen
 from app.models import Dokument, Lauf, TextExtraktion
 from app.providers.factory import transkribierer, vision_client

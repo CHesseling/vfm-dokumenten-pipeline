@@ -2,7 +2,6 @@ import httpx
 import pytest
 import respx
 
-from app.config import get_settings
 from app.enums import AnalyseArt, DokumentTyp, ExtraktionsMethode, NerMethode
 from app.models import Analyse, Chunk, Dokument, Embedding, Entitaet, TextExtraktion
 

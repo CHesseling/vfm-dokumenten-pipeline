@@ -5,7 +5,6 @@ Alle Funktionen führen nur ``flush`` aus, kein ``commit`` - Aufrufer
 """
 
 import hashlib
-from pathlib import Path
 
 from sqlalchemy import delete
 from sqlmodel import Session, select

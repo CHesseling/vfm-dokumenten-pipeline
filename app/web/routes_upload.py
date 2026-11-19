@@ -111,7 +111,7 @@ def _upload_im_hintergrund(
                     ergebnis = ingest_datei_mit_ergebnis(session, inhalt, name, s, clients, methoden=methoden)
                     if ergebnis.fehlgeschlagen:
                         fehler += 1
-                except Exception as e:  # noqa: BLE001 - eine Datei stoppt nicht die übrigen
+                except Exception:  # noqa: BLE001 - eine Datei stoppt nicht die übrigen
                     session.rollback()
                     logger.exception("Upload %s fehlgeschlagen", name)
                     fehler += 1

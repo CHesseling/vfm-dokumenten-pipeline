@@ -1,5 +1,4 @@
 import email.message
-from pathlib import Path
 
 import pytest
 from sqlmodel import select

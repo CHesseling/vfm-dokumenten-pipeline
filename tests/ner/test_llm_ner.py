@@ -1,4 +1,4 @@
-from app.ner.labels import LabelWunsch, labels_parsen
+from app.ner.labels import LabelWunsch
 from app.ner.llm_ner import LlmEntitaeten, LlmEntitaet, llm_ner
 
 P = [LabelWunsch("person")]

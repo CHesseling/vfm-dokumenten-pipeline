@@ -4,7 +4,7 @@ from sqlmodel import select
 import app.web.routes_entitaeten as re_
 from app.enums import DokumentTyp, ExtraktionsMethode, NerMethode
 from app.models import Dokument, Entitaet, TextExtraktion
-from app.ner.labels import LabelWunsch, labels_parsen
+from app.ner.labels import labels_parsen
 from app.providers.llm_client import ProviderFehler
 from app.web.routes_entitaeten import markierungen
 

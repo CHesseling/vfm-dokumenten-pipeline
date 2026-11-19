@@ -18,9 +18,11 @@ def zaehlerstaende(session: Session, s: Settings) -> dict[str, dict]:
             abfrage = joins(abfrage)
         return {typ: n for typ, n in session.execute(abfrage).all()}
 
-    aktiv = lambda q: q.join(TextExtraktion, TextExtraktion.dokument_id == Dokument.id).where(
-        TextExtraktion.ist_aktiv.is_(True)
-    )
+    def aktiv(q):
+        return q.join(TextExtraktion, TextExtraktion.dokument_id == Dokument.id).where(
+            TextExtraktion.ist_aktiv.is_(True)
+        )
+
     return {
         "gesamt": zaehle(),
         "mit_text": zaehle(aktiv),

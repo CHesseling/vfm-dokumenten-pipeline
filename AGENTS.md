@@ -203,6 +203,10 @@ laeuft den Mini-Satz (`tests/fixtures/mini`) durch. Voraussetzungen: Ollama auf
 (`uv run python scripts/fixtures_erzeugen.py`; Audio ist nicht byte-reproduzierbar).
 Fehlt etwas, wird der Test uebersprungen.
 
+Vor jedem Commit: `uvx ruff check .` (Standardregeln, Konfiguration in `pyproject.toml`;
+`uvx ruff check --fix .` behebt das meiste). Ruff ist bewusst keine Projekt-Abhaengigkeit.
+Kein mypy: SQLModel/SQLAlchemy erzeugen dort vor allem Fehlalarme.
+
 ## Lokale Entwicklung
 
 ```
