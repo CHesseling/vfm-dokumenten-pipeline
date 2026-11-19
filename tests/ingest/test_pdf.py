@@ -100,3 +100,34 @@ def test_pdf_vision_rendert_nur_max_seiten(monkeypatch):
     text = pdf_vision(mini_pdf([["A"], ["B"], ["C"]]), client, max_seiten=1)
     assert gerendert == [1]
     assert "nur die ersten 1 von 3 Seiten" in text
+
+
+class _FakeReader:
+    def __init__(self, *args, quantize=True, **kwargs):
+        self.quantize = quantize
+
+
+def _fake_easyocr(monkeypatch, maschine):
+    import sys
+    import types
+
+    modul = types.ModuleType("easyocr")
+    modul.Reader = type("Reader", (_FakeReader,), {})
+    monkeypatch.setitem(sys.modules, "easyocr", modul)
+    monkeypatch.setattr(pdf_modul.platform, "machine", lambda: maschine)
+    return modul
+
+
+def test_easyocr_auf_arm_ohne_quantisierung(monkeypatch):
+    easyocr = _fake_easyocr(monkeypatch, "aarch64")
+    pdf_modul.easyocr_ohne_quantisierung()
+    pdf_modul.easyocr_ohne_quantisierung()  # zweimal: nicht doppelt einwickeln
+    assert easyocr.Reader(["de"]).quantize is False
+    assert easyocr.Reader(["de"], quantize=True).quantize is True
+
+
+def test_easyocr_auf_x86_unveraendert(monkeypatch):
+    easyocr = _fake_easyocr(monkeypatch, "x86_64")
+    pdf_modul.easyocr_ohne_quantisierung()
+    assert easyocr.Reader(["de"]).quantize is True
+

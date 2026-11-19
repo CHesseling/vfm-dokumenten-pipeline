@@ -1,6 +1,8 @@
 """PDF-Text auf drei Wegen: schnell (Textebene), Docling (Layout + OCR), Vision-Modell."""
 
+import functools
 import logging
+import platform
 import threading
 from pathlib import Path
 
@@ -27,9 +29,36 @@ def pdf_schnell(inhalt: bytes) -> str:
     return extract_pdf_text(inhalt)
 
 
+def easyocr_ohne_quantisierung() -> None:
+    """Auf ARM: EasyOCR-Reader standardmaessig mit quantize=False.
+
+    EasyOCR quantisiert seine Netze per torch quantize_dynamic. Das dynamisch
+    quantisierte Linear stuerzt auf ARM-CPUs mit SME (Apple M4) in Linux-VMs
+    (Podman-Machine, Docker Desktop) mit SIGILL ab und reisst den ganzen Prozess
+    samt Oberflaeche mit. Docling reicht `quantize` nicht durch, daher hier der
+    Standardwert. Ein explizit uebergebenes `quantize` gilt weiter.
+    """
+    if platform.machine().lower() not in ("aarch64", "arm64"):
+        return
+    import easyocr
+
+    if getattr(easyocr.Reader, "_vfm_ohne_quantisierung", False):
+        return
+    original = easyocr.Reader.__init__
+
+    @functools.wraps(original)
+    def init(self, *args, **kwargs):
+        kwargs.setdefault("quantize", False)
+        original(self, *args, **kwargs)
+
+    easyocr.Reader.__init__ = init
+    easyocr.Reader._vfm_ohne_quantisierung = True
+
+
 def _docling_converter(artifacts_pfad: str):
     with _CONVERTER_LOCK:
         if artifacts_pfad not in _CONVERTER:
+            easyocr_ohne_quantisierung()
             from docling.datamodel.base_models import InputFormat
             from docling.datamodel.pipeline_options import EasyOcrOptions, PdfPipelineOptions
             from docling.document_converter import DocumentConverter, PdfFormatOption
