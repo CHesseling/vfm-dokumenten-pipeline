@@ -327,8 +327,8 @@ darunter legen, nicht verschachteln. Folge: Der NER-Knopf je Dokument laeuft syn
 und wartet, solange z. B. Docling einen Scan verarbeitet (mehrere Minuten moeglich).
 
 Podman: `image_bauen.sh`/`usb_paket_bauen.sh`/`*.ps1` mit Podman nie gelaufen; getestet ist nur
-`podman compose` mit Podman-Machine auf dem Mac (Build, Start, `vfm check`). Das Terminal
-braucht ein neu gebautes Image (GHCR `3a74292` hat noch kein ttyd).
+`podman compose` mit Podman-Machine auf dem Mac (Build, Start, `vfm check`, `start.sh` mit
+GHCR-Image, Ingest + GLiNER des Mini-Satzes). GHCR `latest` = `30e406c` (amd64+arm64, mit ttyd).
 
 Cortecs ungeprueft; keine Indizes auf `chunk/entitaet.textextraktion_id`; Fortschritt nur
 in-process; fehlgeschlagene Extraktionsmethoden werden bei jedem Lauf erneut versucht;
