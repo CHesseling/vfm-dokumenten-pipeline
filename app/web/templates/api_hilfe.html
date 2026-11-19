@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}API – Dokumenten-Pipeline{% endblock %}
+{% block content %}
+<style>
+  .endpunkt { border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 1.25rem 1rem; margin-bottom: 1.5rem; }
+  .methode { display: inline-block; min-width: 3.5rem; text-align: center; border-radius: 4px; padding: 0.1rem 0.4rem;
+             font-size: 0.85rem; font-weight: 700; color: #fff; background: var(--ndr-blau-mittel); margin-right: 0.5rem; }
+  .methode.POST { background: var(--ndr-blau); }
+  .endpunkt h2 { font-size: 1.15rem; margin-bottom: 0.25rem; }
+  .endpunkt h3 { font-size: 1rem; margin: 1rem 0 0.4rem; }
+  pre.curl { white-space: pre-wrap; word-break: break-all; background: #fafafa; border: 1px solid var(--border);
+             padding: 0.6rem 0.8rem; margin: 0; }
+  td code, li code, p code { background: var(--ndr-warmgrau); padding: 0 0.25rem; border-radius: 3px; }
+  .pflicht { color: var(--fehler); font-weight: 600; }
+  nav.inhalt a { margin-right: 1rem; }
+</style>
+
+<h1>API</h1>
+<p>
+  Unter <code>/api</code> bietet die Pipeline eine JSON-Schnittstelle für Agenten und Skripte:
+  Dokumente suchen, ein Dokument mit Text und Entitäten abrufen, Entitäten über alle Dokumente
+  auflisten und Fragen mit Quellenangaben beantworten lassen. Alles, was die Oberfläche zeigt,
+  ist darüber auch maschinell erreichbar.
+</p>
+<nav class="inhalt">
+  <a href="#adressen">Adressen</a><a href="#token">Token</a><a href="#endpunkte">Endpunkte</a>
+  <a href="#fehler">Fehlercodes</a><a href="/docs">Zum Ausprobieren: /docs</a>
+</nav>
+
+<h2 id="adressen">Adresse</h2>
+<p>Diese Seite läuft unter <code>{{ basis }}</code>. Wie ein Programm die API erreicht, hängt davon ab, wo es läuft:</p>
+<table>
+  <thead><tr><th>Aufrufer</th><th>Basis-Adresse</th></tr></thead>
+  <tbody>
+    <tr><td>auf diesem Rechner (Terminal, Skript, Browser)</td><td><code>{{ basis }}/api</code></td></tr>
+    <tr><td>im Browser-Terminal (im Container selbst)</td><td><code>http://localhost:8000/api</code></td></tr>
+    <tr><td>in einem eigenen Docker-/Podman-Container</td><td><code>http://host.docker.internal:8999/api</code></td></tr>
+    <tr><td>im Compose-Netz der Pipeline</td><td><code>http://app:8000/api</code></td></tr>
+    <tr><td>auf einem anderen Rechner</td><td><code>http://&lt;IP-des-Rechners&gt;:8999/api</code> (dazu <code>APP_BIND=0.0.0.0</code> und ein <code>API_TOKEN</code>)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="token">Token</h2>
+<div class="hinweis-box">
+{% if token %}
+  <p><strong>Ein <code>API_TOKEN</code> ist gesetzt.</strong> Jeder Aufruf braucht den Kopf
+  <code>Authorization: Bearer &lt;Token&gt;</code>, sonst antwortet die API mit 401.
+  Den Wert findest du in der <code>.env</code> (im Browser-Terminal: <code>grep API_TOKEN .env</code>).</p>
+{% else %}
+  <p><strong>Kein <code>API_TOKEN</code> gesetzt:</strong> Die API ist ohne Anmeldung offen. Das ist nur
+  in Ordnung, solange die Pipeline wie voreingestellt nur lokal erreichbar ist (<code>APP_BIND=127.0.0.1</code>).
+  Mit <code>API_TOKEN=...</code> in der <code>.env</code> und <code>compose restart app</code> wird sie geschützt.</p>
+{% endif %}
+</div>
+
+<h2 id="endpunkte">Endpunkte</h2>
+<p>
+  Die Liste wird aus der laufenden Anwendung erzeugt und ist damit immer aktuell.
+  Die maschinenlesbare Beschreibung für Agenten steht unter <a href="/openapi.json"><code>/openapi.json</code></a>,
+  zum Ausprobieren im Browser gibt es <a href="/docs"><code>/docs</code></a> („Try it out“) und <a href="/redoc"><code>/redoc</code></a>.
+</p>
+
+{% for e in endpunkte %}
+<section class="endpunkt">
+  <h2><span class="methode {{ e.methode }}">{{ e.methode }}</span><code>{{ e.pfad }}</code> – {{ e.titel }}</h2>
+  {% if e.beschreibung %}<p>{{ e.beschreibung }}</p>{% endif %}
+
+  {% if e.parameter %}
+  <h3>Parameter</h3>
+  <table>
+    <thead><tr><th>Name</th><th>Wo</th><th>Typ</th><th>Standard</th><th>Bedeutung</th></tr></thead>
+    <tbody>
+      {% for p in e.parameter %}
+      <tr>
+        <td><code>{{ p.name }}</code>{% if p.pflicht %} <span class="pflicht" title="Pflicht">*</span>{% endif %}</td>
+        <td>{{ "im Pfad" if p.ort == "path" else "Abfrage" if p.ort == "query" else p.ort }}</td>
+        <td>{{ p.typ }}</td>
+        <td>{{ p.standard if p.standard is not none else "–" }}</td>
+        <td>{{ p.beschreibung }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if e.koerper %}
+  <h3>Anfrage (JSON-Körper, {{ e.koerper[0] }})</h3>
+  <table>
+    <thead><tr><th>Feld</th><th>Typ</th><th>Bedeutung</th></tr></thead>
+    <tbody>
+      {% for f in e.koerper[1] %}
+      <tr><td><code>{{ f.name }}</code>{% if f.pflicht %} <span class="pflicht" title="Pflicht">*</span>{% endif %}</td><td>{{ f.typ }}</td><td>{{ f.beschreibung }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if e.antwort %}
+  <h3>Antwort ({{ e.antwort[0] }})</h3>
+  <table>
+    <thead><tr><th>Feld</th><th>Typ</th><th>Bedeutung</th></tr></thead>
+    <tbody>
+      {% for f in e.antwort[1] %}
+      <tr><td><code>{{ f.name }}</code></td><td>{{ f.typ }}</td><td>{{ f.beschreibung }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h3>Beispiel</h3>
+  <pre class="curl">{{ e.curl }}</pre>
+</section>
+{% endfor %}
+
+<h2 id="fehler">Fehlercodes</h2>
+<table>
+  <thead><tr><th>Code</th><th>Bedeutung</th></tr></thead>
+  <tbody>
+    {% for code, text in fehlercodes %}
+    <tr><td><code>{{ code }}</code></td><td>{{ text }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="hinweis">* = Pflichtangabe. Mehr Beispiele und Übungen: <code>docs/workshop/tag3.md</code>.</p>
+{% endblock %}

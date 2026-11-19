@@ -79,7 +79,7 @@ app/
   api/routes.py          /api/suche, /api/dokumente/{id}, /api/entitaeten, /api/frage (Bearer-Token optional)
   models/                SQLModel-Tabellen: dokument.py (Dokument, TextExtraktion, Chunk, Embedding,
                          Entitaet), auswertung.py (Analyse, Lauf), _typen.py (Spaltentypen)
-  web/                   routes_{dokumente,suche,entitaeten,klassifikation,sql,status,terminal,upload}.py, vorlagen.py,
+  web/                   routes_{api_hilfe,dokumente,suche,entitaeten,klassifikation,sql,status,terminal,upload}.py, vorlagen.py,
                          templates/ (Jinja2, vanilla JS, Polling alle 2 s)
 
 alembic/versions/0001_basis.py   Basis-Schema inkl. pgvector, tsvector und Rolle vfm_leser

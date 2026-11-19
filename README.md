@@ -172,6 +172,9 @@ Die Decisions-API ist bei Cortecs noch Beta.
 
 ## Agenten anbinden (z. B. Hermes)
 
+Eine Erklaerseite mit allen Endpunkten, Parametern und curl-Beispielen gibt es in der
+Oberflaeche unter **API** (`/api-hilfe`).
+
 Ein Agent wie Hermes nutzt die Pipeline ueber die HTTP-Schnittstelle `/api`:
 Suche (`/api/suche`), Frage mit Quellen (`/api/frage`), ein Dokument
 (`/api/dokumente/{id}`) und Entitaeten (`/api/entitaeten`). Die Beschreibungen
