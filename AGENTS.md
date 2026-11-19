@@ -318,6 +318,12 @@ sonst laeuft die Dev-Umgebung unter Emulation (`usb_paket_bauen.sh` macht das se
 
 ## Bekannte offene Punkte
 
+Lokale Schwergewichte (Docling-PDF, GLiNER, Whisper) laufen unter `app/modell_sperre.py`
+(flock, gilt fuer Threads und Prozesse im Container) nacheinander: gleichzeitig reichte
+der Speicher einer 8-GB-Podman-Machine nicht (Exit 137). Neue lokale Modelle ebenfalls
+darunter legen, nicht verschachteln. Folge: Der NER-Knopf je Dokument laeuft synchron
+und wartet, solange z. B. Docling einen Scan verarbeitet (mehrere Minuten moeglich).
+
 Podman: `image_bauen.sh`/`usb_paket_bauen.sh`/`*.ps1` mit Podman nie gelaufen; getestet ist nur
 `podman compose` mit Podman-Machine auf dem Mac (Build, Start, `vfm check`). Das Terminal
 braucht ein neu gebautes Image (GHCR `3a74292` hat noch kein ttyd).

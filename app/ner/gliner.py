@@ -9,6 +9,7 @@ wird ersatzweise per `finditer` im Fenster gesucht.
 import re
 import threading
 
+from app.modell_sperre import modell_sperre
 from app.ner.labels import LabelWunsch, ist_bekannt
 from app.ner.treffer import Treffer
 
@@ -88,13 +89,17 @@ class GlinerNer:
         rueck = modell_labels(labels)
         if not rueck or not text.strip():
             return []
-        modell = _modell_geladen(self.modell)
+        with modell_sperre("GLiNER"):
+            modell = _modell_geladen(self.modell)
+            fenster = [
+                (offset, teil, modell.extract_entities(
+                    teil, list(rueck), threshold=self.schwelle, include_spans=True, include_confidence=True
+                ))
+                for offset, teil in _fenster(text)
+            ]
         gesehen: set[tuple[str, int, int]] = set()
         treffer: list[Treffer] = []
-        for offset, teil in _fenster(text):
-            roh = modell.extract_entities(
-                teil, list(rueck), threshold=self.schwelle, include_spans=True, include_confidence=True
-            )
+        for offset, teil, roh in fenster:
             for modell_label, eintraege in roh.get("entities", {}).items():
                 label = rueck.get(modell_label)
                 if label is None:

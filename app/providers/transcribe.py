@@ -5,6 +5,7 @@ from typing import Protocol
 
 import httpx
 
+from app.modell_sperre import modell_sperre
 from app.providers.llm_client import provider_fehler_abbilden
 
 
@@ -36,13 +37,14 @@ class LokalerTranskribierer:
         self._modell = None
 
     def transkribieren(self, inhalt: bytes, dateiname: str) -> str:
-        if self._modell is None:
-            self._modell = _whisper(self.model, self._download_root)
         suffix = os.path.splitext(dateiname)[1]
-        with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
+        with modell_sperre("Whisper"), tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
+            if self._modell is None:
+                self._modell = _whisper(self.model, self._download_root)
             tmp.write(inhalt)
             tmp.flush()
             segmente, _ = self._modell.transcribe(tmp.name, language="de", beam_size=5, vad_filter=True)
+            # segmente ist ein Generator: die Rechnung passiert hier, noch unter der Sperre
             return " ".join(s.text.strip() for s in segmente).strip()
 
 

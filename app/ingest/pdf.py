@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 
 from app.ingest.pdf_render import extract_pdf_text, pdf_seitenzahl, render_pdf_pages_to_png
+from app.modell_sperre import modell_sperre
 from app.providers.llm_client import LLMClient, bild_nachricht
 
 logger = logging.getLogger(__name__)
@@ -82,8 +83,9 @@ def pdf_docling(inhalt: bytes, artifacts_pfad: str) -> str:
     try:
         from docling.datamodel.base_models import DocumentStream
 
-        converter = _docling_converter(artifacts_pfad)
-        ergebnis = converter.convert(DocumentStream(name="dokument.pdf", stream=BytesIO(inhalt)))
+        with modell_sperre("Docling"):
+            converter = _docling_converter(artifacts_pfad)
+            ergebnis = converter.convert(DocumentStream(name="dokument.pdf", stream=BytesIO(inhalt)))
         return ergebnis.document.export_to_markdown()
     except Exception as fehler:
         raise ExtraktionsFehler(f"Docling konnte das PDF nicht lesen: {fehler}") from fehler
