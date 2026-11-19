@@ -2,6 +2,7 @@ import base64
 import email
 import email.policy
 import mimetypes
+import quopri
 import re
 from datetime import datetime, timezone
 from email.message import Message
@@ -175,6 +176,24 @@ def _ist_anhang(teil: Message) -> bool:
     return not (teil.get_content_maintype() == "image" and teil.get("Content-ID"))
 
 
+def _eingebettete_mail(teil: Message) -> Message:
+    """Die weitergeleitete Mail aus einem message/rfc822-Teil.
+
+    RFC 2046 verbietet base64/quoted-printable fuer message/rfc822, Outlook und
+    Exchange nutzen es trotzdem. Der Parser dekodiert dann nicht, sondern liefert
+    eine Mail ohne Header mit dem kodierten Text als Inhalt - hier selbst dekodieren.
+    """
+    eingebettet = teil.get_payload(0)
+    kodierung = str(teil.get("Content-Transfer-Encoding", "")).strip().lower()
+    if kodierung == "base64":
+        roh = base64.b64decode(eingebettet.as_bytes())  # Zeilenumbrueche werden ignoriert
+    elif kodierung == "quoted-printable":
+        roh = quopri.decodestring(eingebettet.as_bytes())
+    else:
+        return eingebettet
+    return email.message_from_bytes(roh, policy=email.policy.default)
+
+
 def extract_eml_attachments(eml_bytes: bytes) -> list[dict]:
     """Extrahiert Anhaenge einer .eml-Datei als Graph-API-Attachment-Dicts
     (dieselbe Form, die store_attachments erwartet)."""
@@ -186,7 +205,7 @@ def extract_eml_attachments(eml_bytes: bytes) -> list[dict]:
             continue
         dateiname = teil.get_filename()
         if teil.get_content_type() == "message/rfc822":
-            eingebettet = teil.get_payload(0)
+            eingebettet = _eingebettete_mail(teil)
             inhalt = eingebettet.as_bytes()
             if not dateiname:
                 dateiname = f"{(eingebettet.get('Subject') or 'weitergeleitet').strip()}.eml"

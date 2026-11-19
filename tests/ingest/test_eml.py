@@ -1,4 +1,8 @@
+import base64
+import quopri
 from email.message import EmailMessage
+
+import pytest
 
 from app.ingest.eml import eml_lesen
 from tests.fixtures.pdf_bauen import mini_pdf
@@ -145,3 +149,26 @@ def test_inline_textanhang_mit_filename_ist_anhang_und_nicht_body():
     assert [n for n, _ in eml.anhaenge] == ["notiz.txt", "daten.csv"]
     assert eml.text.endswith("Normaler Body")
     assert "Notiz-Inhalt" not in eml.text
+
+
+@pytest.mark.parametrize("kodierung", ["base64", "quoted-printable"])
+def test_weitergeleitete_mail_mit_transferkodierung(kodierung):
+    # Outlook/Exchange kodieren message/rfc822 entgegen RFC 2046 manchmal
+    innen = b"From: x@y.de\r\nSubject: Innerer Betreff\r\n\r\nInnen =C3=A4 Text\r\n"
+    kodiert = base64.encodebytes(innen) if kodierung == "base64" else quopri.encodestring(innen)
+    roh = (
+        b"From: anna@x.de\r\nSubject: Aussen\r\nMIME-Version: 1.0\r\n"
+        b"Content-Type: multipart/mixed; boundary=GRENZE\r\n\r\n"
+        b"--GRENZE\r\nContent-Type: text/plain\r\n\r\nWeitergeleitet\r\n"
+        b"--GRENZE\r\nContent-Type: message/rfc822\r\n"
+        b"Content-Transfer-Encoding: " + kodierung.encode() + b"\r\n\r\n"
+        + kodiert + b"\r\n--GRENZE--\r\n"
+    )
+
+    eml = eml_lesen(roh)
+
+    assert len(eml.anhaenge) == 1
+    name, daten = eml.anhaenge[0]
+    assert name == "Innerer Betreff.eml"
+    assert eml_lesen(daten).metadaten["betreff"] == "Innerer Betreff"
+
