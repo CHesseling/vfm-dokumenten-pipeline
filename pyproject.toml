@@ -66,5 +66,8 @@ build-backend = "hatchling.build"
 packages = ["app"]
 
 [tool.ruff.lint]
-# Standardregeln (Pyflakes + Kern von pycodestyle); `l` als Variablenname ist hier ok
+# Feste Auswahl (Pyflakes + Kern von pycodestyle), damit das Ergebnis nicht von der
+# Ruff-Version abhaengt: neuere Versionen pruefen ohne select deutlich mehr.
+select = ["E4", "E7", "E9", "F"]
+# `l` als Variablenname ist hier ok
 ignore = ["E741"]
