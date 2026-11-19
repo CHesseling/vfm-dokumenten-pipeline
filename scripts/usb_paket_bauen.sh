@@ -5,7 +5,8 @@
 #   scripts/usb_paket_bauen.sh --nur-modelle-pruefen     (Trockenlauf: listet
 #                                                         die Modell-Dateien, kopiert nichts)
 # Voraussetzung: dist/vfm-pipeline-amd64.tar.gz und -arm64.tar.gz existieren
-# (scripts/image_bauen.sh), Docker laeuft, Internet fuer die Fremd-Images.
+# (scripts/image_bauen.sh), Docker oder Podman laeuft, Internet fuer die Fremd-Images.
+# VFM_ENGINE=docker|podman erzwingt eine Engine (Standard: was laeuft, Docker zuerst).
 set -euo pipefail
 
 AUFRUF_VERZEICHNIS="$PWD"
@@ -98,10 +99,16 @@ if [ "$NUR_PRUEFEN" = 1 ]; then
   exit 0
 fi
 
-docker info > /dev/null 2>&1 || {
-  echo "Docker läuft nicht – bitte Docker Desktop bzw. colima starten und das Skript erneut ausführen." >&2
+# Container-Engine: Docker oder Podman, je nachdem was laeuft (VFM_ENGINE erzwingt eine)
+CE=""
+for e in ${VFM_ENGINE:-docker podman}; do
+  if command -v "$e" > /dev/null && "$e" info > /dev/null 2>&1; then CE="$e"; break; fi
+done
+[ -n "$CE" ] || {
+  echo "Weder Docker noch Podman laeuft - bitte Docker Desktop, colima bzw. 'podman machine start' starten und das Skript erneut ausführen." >&2
   exit 1
 }
+echo "Container-Engine: $CE"
 
 # ----------------------------------------------------------- Fremd-Images
 
@@ -113,12 +120,19 @@ esac
 pull_arch() {
   # pull_arch IMAGE ARCH: zieht das Image in der Ziel-Architektur und prueft sie.
   # Der Cache ignoriert --platform manchmal -> bei Abweichung per Digest ziehen.
-  local image="$1" arch="$2" gefunden digest
-  docker pull --platform "linux/${arch}" "$image" > /dev/null
-  gefunden="$(docker image inspect "$image" --format '{{.Architecture}}')"
+  local image="$1" arch="$2" gefunden digest index
+  "$CE" pull --platform "linux/${arch}" "$image" > /dev/null
+  gefunden="$("$CE" image inspect "$image" --format '{{.Architecture}}')"
   if [ "$gefunden" != "$arch" ]; then
     echo "  Architektur '$gefunden' statt '$arch' - ziehe per Digest" >&2
-    digest="$(docker buildx imagetools inspect "$image" --raw | python3 -I -c '
+    if [ "$CE" = podman ] && command -v skopeo > /dev/null; then
+      index="$(skopeo inspect --raw "docker://$image")"
+    elif [ "$CE" = podman ]; then
+      index="$(podman manifest inspect "$image")"   # fragt die Registry, wenn lokal keine Liste
+    else
+      index="$(docker buildx imagetools inspect "$image" --raw)"
+    fi
+    digest="$(printf '%s' "$index" | python3 -I -c '
 import json, sys
 arch = sys.argv[1]
 idx = json.load(sys.stdin)
@@ -128,10 +142,10 @@ for m in idx["manifests"]:
         print(m["digest"]); break
 ' "$arch")"
     [ -n "$digest" ] || { echo "FEHLER: kein Digest fuer $image/$arch" >&2; return 1; }
-    docker rmi -f "$image" > /dev/null
-    docker pull "${image%%:*}@${digest}" > /dev/null
-    docker tag "${image%%:*}@${digest}" "$image"
-    gefunden="$(docker image inspect "$image" --format '{{.Architecture}}')"
+    "$CE" rmi -f "$image" > /dev/null
+    "$CE" pull "${image%%:*}@${digest}" > /dev/null
+    "$CE" tag "${image%%:*}@${digest}" "$image"
+    gefunden="$("$CE" image inspect "$image" --format '{{.Architecture}}')"
   fi
   if [ "$gefunden" != "$arch" ]; then
     echo "FEHLER: $image hat Architektur '$gefunden', erwartet '$arch'." >&2
@@ -143,7 +157,12 @@ abbild_sichern() {
   # abbild_sichern IMAGE ARCH DATEI
   echo "==> $1 (${2}) -> $3"
   pull_arch "$1" "$2"
-  docker save --platform "linux/${2}" "$1" | gzip > "$3"
+  if [ "$CE" = podman ]; then
+    # Podman speichert genau das (gepruefte) Einzel-Architektur-Image unter dem Tag
+    podman save "$1" | gzip > "$3"
+  else
+    docker save --platform "linux/${2}" "$1" | gzip > "$3"
+  fi
 }
 
 # ------------------------------------------------------------------ Paket
@@ -164,13 +183,13 @@ for arch in amd64 arm64; do
 done
 
 for arch in amd64 arm64; do
-  abbild_sichern pgvector/pgvector:pg16 "$arch" "$ZIEL/images/pgvector-pg16-${arch}.tar.gz"
-  abbild_sichern ollama/ollama:latest "$arch" "$ZIEL/images/ollama-${arch}.tar.gz"
+  abbild_sichern docker.io/pgvector/pgvector:pg16 "$arch" "$ZIEL/images/pgvector-pg16-${arch}.tar.gz"
+  abbild_sichern docker.io/ollama/ollama:latest "$arch" "$ZIEL/images/ollama-${arch}.tar.gz"
 done
 # Lokale Dev-Umgebung wieder auf die native Architektur zuruecksetzen
 echo "==> Native Architektur (${NATIV}) wiederherstellen"
-pull_arch pgvector/pgvector:pg16 "$NATIV"
-pull_arch ollama/ollama:latest "$NATIV"
+pull_arch docker.io/pgvector/pgvector:pg16 "$NATIV"
+pull_arch docker.io/ollama/ollama:latest "$NATIV"
 
 if [ "$OHNE_MODELLE" = 0 ]; then
   echo "==> Ollama-Modelle kopieren"
@@ -198,7 +217,7 @@ Dieser Stick enthaelt alles, um die Pipeline ohne Internet zu starten.
 
 ## Inhalt
 
-- `images/` Docker-Images fuer amd64 (Intel/Windows/Linux-Server) und arm64
+- `images/` Container-Images fuer amd64 (Intel/Windows/Linux-Server) und arm64
   (Apple Silicon): App, Datenbank (pgvector), Ollama
 - `ollama-modelle/` Sprachmodelle (qwen3.5:4b, qwen3-vl:8b, bge-m3) im
   Ollama-Format (fehlt, wenn der Stick ohne Modelle gebaut wurde)
@@ -210,8 +229,8 @@ Dieser Stick enthaelt alles, um die Pipeline ohne Internet zu starten.
 - Der Stick muss mit **exFAT** formatiert sein (FAT32 kann keine Dateien
   > 4 GB speichern, die Image-Dateien sind ~3 GB gross, Gesamtgroesse > 10 GB).
 
-- Docker (Docker Desktop bzw. Docker Engine mit `docker compose`) ist
-  installiert und laeuft.
+- Docker (Docker Desktop bzw. Docker Engine mit `docker compose`) oder Podman
+  (mit `podman compose`) ist installiert und laeuft.
 - Fuer die lokalen Modelle: Ollama (https://ollama.com) ist auf dem
   Rechner installiert, oder du nutzt das mitgelieferte Ollama-Image
   (Variante B unten).
@@ -237,7 +256,7 @@ Windows (PowerShell, im Stick-Ordner):
 Standardziel ist `%USERPROFILE%\vfm-pipeline`.
 
 Das Skript erkennt die Architektur, laedt die passenden Images
-(`docker load`), fragt, ob die Modelle nach `~/.ollama/models` kopiert
+(`docker load` bzw. `podman load`), fragt, ob die Modelle nach `~/.ollama/models` kopiert
 werden sollen (vorhandene Dateien bleiben erhalten), entpackt das Projekt und legt `.env` aus `.env.example` an.
 
 ## Starten
@@ -246,7 +265,10 @@ werden sollen (vorhandene Dateien bleiben erhalten), entpackt das Projekt und le
     docker compose up -d
     docker compose exec app vfm check      # alle Pruefungen sollten gruen sein
 
-Die Oberflaeche laeuft unter http://localhost:8999. Weitere Schritte
+Mit Podman statt Docker: ueberall `podman compose` statt `docker compose`.
+
+Die Oberflaeche laeuft unter http://localhost:8999, das Terminal im Browser
+unter http://localhost:7681 (Link "Terminal" in der Oberflaeche). Weitere Schritte
 (Material einlesen, Suche, Auswertung) stehen in der `README.md` im
 Projektordner.
 

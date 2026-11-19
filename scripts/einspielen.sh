@@ -29,11 +29,16 @@ case "$(uname -m)" in
 esac
 echo "Architektur: $ARCH"
 
-command -v docker > /dev/null || { echo "Docker ist nicht installiert." >&2; exit 1; }
-docker info > /dev/null 2>&1 || {
-  echo "Docker läuft nicht – bitte Docker Desktop bzw. colima starten und das Skript erneut ausführen." >&2
+# Container-Engine: Docker oder Podman, je nachdem was laeuft (VFM_ENGINE erzwingt eine)
+CE=""
+for e in ${VFM_ENGINE:-docker podman}; do
+  if command -v "$e" > /dev/null && "$e" info > /dev/null 2>&1; then CE="$e"; break; fi
+done
+[ -n "$CE" ] || {
+  echo "Weder Docker noch Podman laeuft - bitte Docker Desktop, colima bzw. 'podman machine start' starten und das Skript erneut ausführen." >&2
   exit 1
 }
+echo "Container-Engine: $CE"
 
 laden() {
   local datei="$STICK/images/$1"
@@ -42,16 +47,16 @@ laden() {
     return 0
   fi
   echo "  lade $1 ..."
-  gunzip -c "$datei" | docker load
+  gunzip -c "$datei" | "$CE" load
 }
 
-echo "==> Docker-Images laden"
+echo "==> Container-Images laden"
 if [ ! -f "$STICK/images/vfm-pipeline-${ARCH}.tar.gz" ]; then
   echo "App-Image für $ARCH fehlt auf dem Stick" >&2
   exit 1
 fi
 laden "vfm-pipeline-${ARCH}.tar.gz"
-docker tag "vfm-pipeline:latest-${ARCH}" vfm-pipeline:latest
+"$CE" tag "vfm-pipeline:latest-${ARCH}" vfm-pipeline:latest
 laden "pgvector-pg16-${ARCH}.tar.gz"
 
 read -r -p "Ollama-Image (fuer Ollama im Container) auch laden? [j/N] " antwort || antwort=""
@@ -95,4 +100,4 @@ fi
 
 echo
 echo "Fertig. Weiter mit:"
-echo "  cd \"$ZIEL\" && docker compose up -d && docker compose exec app vfm check"
+echo "  cd \"$ZIEL\" && $CE compose up -d && $CE compose exec app vfm check"

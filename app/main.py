@@ -6,7 +6,8 @@ from app.config import get_settings
 from app.logging_config import configure_logging
 from app.api import routes as api_routes
 from app.web import (
-    routes_dokumente, routes_entitaeten, routes_klassifikation, routes_sql, routes_status, routes_suche, routes_upload,
+    routes_dokumente, routes_entitaeten, routes_klassifikation, routes_sql, routes_status, routes_suche,
+    routes_terminal, routes_upload,
 )
 
 
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_suche.router)
     app.include_router(routes_klassifikation.router)
     app.include_router(routes_status.router)
+    app.include_router(routes_terminal.router)
     app.include_router(api_routes.router)
 
     @app.get("/gesundheit")

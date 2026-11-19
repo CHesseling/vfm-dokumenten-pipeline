@@ -186,3 +186,14 @@ def test_clef_ohne_schluessel_aus():
     s = _basis()
     assert not s.clef_aktiv()
     assert s.classify_model == "clef-flash:latest" and s.classify_base_url == "https://api.cortecs.ai/v1"
+
+
+def test_terminal_aktiv_schalter():
+    basis = dict(
+        database_url="postgresql+psycopg://x@y/z", chat_base_url="http://c/v1", chat_model="m",
+        embed_base_url="http://e/v1", embed_model="e", _env_file=None,
+    )
+    assert Settings(**basis).terminal_aktiv()
+    for wert in ("aus", "AUS", "0", "false", "off", " nein "):
+        assert not Settings(**basis, terminal=wert).terminal_aktiv()
+    assert Settings(**basis, terminal="an").terminal_aktiv()

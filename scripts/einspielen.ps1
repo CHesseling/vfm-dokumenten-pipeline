@@ -25,18 +25,30 @@ switch ($ProzArch) {
 }
 Write-Host "Architektur: $Arch"
 
-if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-    throw "Docker ist nicht installiert."
+function Get-ContainerEngine {
+    # Docker oder Podman, je nachdem was laeuft (VFM_ENGINE=docker|podman erzwingt eine)
+    $Alt = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $Kandidaten = if ($env:VFM_ENGINE) { @($env:VFM_ENGINE) } else { @("docker", "podman") }
+        foreach ($E in $Kandidaten) {
+            if (Get-Command $E -ErrorAction SilentlyContinue) {
+                & $E info 2>$null | Out-Null
+                if ($LASTEXITCODE -eq 0) { return $E }
+            }
+        }
+        return $null
+    } finally {
+        $ErrorActionPreference = $Alt
+    }
 }
+
 # Unter PS 5.1 kann stderr eines nativen Befehls mit "Stop" zum Abbruch fuehren
-$Alt = $ErrorActionPreference
-$ErrorActionPreference = "Continue"
-docker info 2>$null | Out-Null
-$DockerOk = ($LASTEXITCODE -eq 0)
-$ErrorActionPreference = $Alt
-if (-not $DockerOk) {
-    throw "Docker laeuft nicht - bitte Docker Desktop bzw. colima starten und das Skript erneut ausfuehren."
+$CE = Get-ContainerEngine
+if (-not $CE) {
+    throw "Weder Docker noch Podman laeuft - bitte Docker Desktop bzw. 'podman machine start' starten und das Skript erneut ausfuehren."
 }
+Write-Host "Container-Engine: $CE"
 
 function Lade-Image([string]$Name) {
     $Datei = Join-Path $Stick "images\$Name"
@@ -45,26 +57,26 @@ function Lade-Image([string]$Name) {
         return
     }
     Write-Host "  lade $Name ..."
-    # docker load liest .tar.gz direkt
+    # docker/podman load liest .tar.gz direkt
     $Alt = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    docker load -i $Datei
+    & $CE load -i $Datei
     $Ok = ($LASTEXITCODE -eq 0)
     $ErrorActionPreference = $Alt
-    if (-not $Ok) { throw "docker load fehlgeschlagen: $Name" }
+    if (-not $Ok) { throw "$CE load fehlgeschlagen: $Name" }
 }
 
-Write-Host "==> Docker-Images laden"
+Write-Host "==> Container-Images laden"
 if (-not (Test-Path (Join-Path $Stick "images\vfm-pipeline-$Arch.tar.gz"))) {
     throw "App-Image fuer $Arch fehlt auf dem Stick"
 }
 Lade-Image "vfm-pipeline-$Arch.tar.gz"
 $Alt = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-docker tag "vfm-pipeline:latest-$Arch" "vfm-pipeline:latest"
+& $CE tag "vfm-pipeline:latest-$Arch" "vfm-pipeline:latest"
 $Ok = ($LASTEXITCODE -eq 0)
 $ErrorActionPreference = $Alt
-if (-not $Ok) { throw "docker tag fehlgeschlagen" }
+if (-not $Ok) { throw "$CE tag fehlgeschlagen" }
 Lade-Image "pgvector-pg16-$Arch.tar.gz"
 
 $Antwort = Read-Host "Ollama-Image (fuer Ollama im Container) auch laden? [j/N]"
@@ -121,4 +133,4 @@ if (-not (Test-Path $EnvDatei)) {
 
 Write-Host ""
 Write-Host "Fertig. Weiter mit:"
-Write-Host "  cd `"$Ziel`"; docker compose up -d; docker compose exec app vfm check"
+Write-Host "  cd `"$Ziel`"; $CE compose up -d; $CE compose exec app vfm check"

@@ -30,9 +30,23 @@ RUN uv sync --no-dev --frozen
 # Stufe 3: Laufzeit
 FROM python:3.12-slim
 LABEL org.opencontainers.image.source="https://github.com/CHesseling/vfm-dokumenten-pipeline"
+# sudo/less/procps/nano/postgresql-client: Admin-Arbeit im Browser-Terminal
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0 \
+      sudo less procps nano postgresql-client \
  && rm -rf /var/lib/apt/lists/*
+# Browser-Terminal (ttyd, statisches Release-Binary; nicht in Debian trixie)
+ARG TARGETARCH
+ARG TTYD_VERSION=1.7.7
+RUN case "$TARGETARCH" in \
+      amd64) datei=ttyd.x86_64; summe=8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55 ;; \
+      arm64) datei=ttyd.aarch64; summe=b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165 ;; \
+      *) echo "ttyd: Architektur $TARGETARCH nicht unterstuetzt" >&2; exit 1 ;; \
+    esac \
+ && python -c "import sys, urllib.request as u; u.urlretrieve(sys.argv[1], '/usr/local/bin/ttyd')" \
+      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/${datei}" \
+ && echo "${summe}  /usr/local/bin/ttyd" | sha256sum -c - \
+ && chmod 755 /usr/local/bin/ttyd
 # UID/GID kommen aus compose (build.args, APP_UID/APP_GID aus .env), damit das
 # beim ersten Start angelegte Volume /data zum Container-User passt.
 ARG APP_UID=1000
@@ -40,7 +54,11 @@ ARG APP_GID=1000
 RUN groupadd --gid ${APP_GID} appuser \
  && useradd --create-home --uid ${APP_UID} --gid ${APP_GID} appuser \
  && mkdir -p /data/dateien /material \
- && chown -R ${APP_UID}:${APP_GID} /data /material
+ && chown -R ${APP_UID}:${APP_GID} /data /material \
+ && printf '%s\n' \
+      'Defaults secure_path="/app/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' \
+      'appuser ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/appuser \
+ && chmod 440 /etc/sudoers.d/appuser
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=modelle /models /models
@@ -52,5 +70,5 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Sicherheitsnetz: CRLF aus einem Windows-Checkout wuerde das Shebang brechen
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 USER appuser
-EXPOSE 8000
+EXPOSE 8000 7681
 ENTRYPOINT ["./entrypoint.sh"]

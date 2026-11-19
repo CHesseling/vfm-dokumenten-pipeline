@@ -27,8 +27,15 @@ Jeder Schritt hat einen eigenen Befehl (`vfm ingest`, `vfm ner`, `vfm embed`,
 
 ## Einrichten
 
-Du brauchst: Docker (Docker Desktop oder colima), mindestens 8 GB Arbeitsspeicher
-fuer Docker, ca. 15 GB freien Platz und Ollama (https://ollama.com).
+Du brauchst: Docker (Docker Desktop oder colima) oder Podman, mindestens 8 GB
+Arbeitsspeicher fuer Docker bzw. die Podman-Machine, ca. 15 GB freien Platz und
+Ollama (https://ollama.com).
+
+**Podman statt Docker:** Alles funktioniert gleich. Die Skripte erkennen selbst, ob
+Docker oder Podman laeuft (erzwingen: `VFM_ENGINE=podman`). Bei den Befehlen
+unten steht dann `podman compose` statt `docker compose`. Auf dem Mac vorher
+`podman machine start`; `podman compose` braucht `docker-compose` oder
+`podman-compose` (z. B. `brew install docker-compose`).
 
 ### Schnellstart: ein Befehl (online)
 
@@ -48,6 +55,10 @@ Der Befehl legt das Projekt in `~/vfm-pipeline` (Windows: `%USERPROFILE%\vfm-pip
 laedt die Ollama-Modelle und das fertige App-Image (zusammen bis zu 20 GB, am besten
 vorher im heimischen WLAN), startet alles und oeffnet http://localhost:8999.
 Erneut ausfuehren aktualisiert auf den neuesten Stand; deine `.env` und `material/` bleiben.
+
+Statt das fertige Image zu laden, kann das Skript es auch lokal bauen (dauert
+10-20 Minuten): `curl ... | bash -s -- --build` bzw. unter Windows vorher
+`$env:VFM_BUILD = "1"` setzen.
 
 ### Weg A: mit dem USB-Stick (ohne Internet)
 
@@ -88,6 +99,20 @@ Transkription). Alle Zeilen sollten **OK** zeigen. Beim ersten Start dauert es
 ein paar Sekunden, bis die Datenbank bereit ist.
 
 Die Oberflaeche erreichst du unter **http://localhost:8999**.
+
+### Terminal im Browser
+
+Unter **http://localhost:7681** (Link "Terminal" oben in der Oberflaeche) laeuft
+eine Shell im App-Container: `vfm ...`, `alembic`, die Datenbank per
+`psql "${DATABASE_URL/+psycopg/}"`, Dateien unter `/data` und `/material`. Die Shell laeuft als
+`appuser`; mit `sudo` geht alles als root (z. B. `sudo apt-get install ...`,
+bleibt nur bis zum Neustart des Containers).
+
+Einstellungen in der `.env`: `TERMINAL=aus` schaltet es ab, `TERMINAL_PORT`
+aendert den Port, `TERMINAL_PASS` (und `TERMINAL_USER`, Standard `admin`) setzt
+einen Login. Wie die Oberflaeche ist das Terminal nur lokal erreichbar
+(`TERMINAL_BIND=127.0.0.1`). Wer es auf einem Server freigibt
+(`TERMINAL_BIND=0.0.0.0`), muss `TERMINAL_PASS` setzen: Das Terminal kann alles.
 
 ## Material einlesen
 
@@ -197,7 +222,9 @@ aktuelle Modell.
 - Pruefen: `ollama list` muss `qwen3.5:4b`, `qwen3-vl:8b` und `bge-m3` zeigen.
 - Der Container erreicht Ollama ueber `host.docker.internal:11434`. Auf Linux
   funktioniert das durch den Eintrag in `docker-compose.yml`; Ollama muss dort
-  auf allen Schnittstellen lauschen (`OLLAMA_HOST=0.0.0.0`).
+  auf allen Schnittstellen lauschen (`OLLAMA_HOST=0.0.0.0`). Das gilt auch fuer
+  rootless Podman unter Linux. Mit der Podman-Machine auf dem Mac reicht das
+  normale Ollama.
 - Alternative: Ollama im Container: `docker compose --profile ollama up -d`, die
   Modelle dort mit `docker compose exec ollama ollama pull qwen3.5:4b` (usw.)
   ziehen und in der `.env` die drei `*_BASE_URL` auf `http://ollama:11434/v1`
@@ -212,6 +239,11 @@ aktuelle Modell.
 **Der Container bricht ab oder ist extrem langsam (zu wenig Arbeitsspeicher)**
 - Docker Desktop: Einstellungen, Resources, Memory auf mindestens 8 GB.
 - colima: `colima stop && colima start --memory 8` (oder mehr).
+- Podman (Mac/Windows): `podman machine stop && podman machine set --memory 8192 && podman machine start`.
+
+**Podman: "permission denied" auf `/material` oder `/app/config` (Fedora/RHEL)**
+- SELinux: Die Bind-Mounts tragen in `docker-compose.yml` bereits `:z`. Wer eigene
+  Mounts ergaenzt, braucht dort ebenfalls `:z`.
 
 **Windows**
 - Docker Desktop mit WSL2-Backend installieren und starten.

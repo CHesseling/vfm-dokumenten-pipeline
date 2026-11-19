@@ -79,7 +79,7 @@ app/
   api/routes.py          /api/suche, /api/dokumente/{id}, /api/entitaeten, /api/frage (Bearer-Token optional)
   models/                SQLModel-Tabellen: dokument.py (Dokument, TextExtraktion, Chunk, Embedding,
                          Entitaet), auswertung.py (Analyse, Lauf), _typen.py (Spaltentypen)
-  web/                   routes_{dokumente,suche,entitaeten,klassifikation,sql,status,upload}.py, vorlagen.py,
+  web/                   routes_{dokumente,suche,entitaeten,klassifikation,sql,status,terminal,upload}.py, vorlagen.py,
                          templates/ (Jinja2, vanilla JS, Polling alle 2 s)
 
 alembic/versions/0001_basis.py   Basis-Schema inkl. pgvector, tsvector und Rolle vfm_leser
@@ -215,6 +215,17 @@ docker compose up -d                   # db + app (Migrationen laufen via entryp
 docker compose exec app vfm check
 ```
 
+Statt `docker` geht ueberall `podman` (gleiche Syntax, `podman compose`). Die Skripte unter
+`scripts/` waehlen die Engine selbst (Docker zuerst, `VFM_ENGINE=docker|podman` erzwingt eine);
+neue Skripte bitte mit derselben `CE`-Schleife statt fest `docker`. Compose-Images voll
+qualifiziert lassen (`docker.io/...`, Podman-short-name-mode) und Bind-Mounts mit `:z` (SELinux).
+
+Browser-Terminal: `entrypoint.sh` startet ttyd (statisches Release-Binary, sha256 im
+Dockerfile, `ARG TTYD_VERSION`) neben uvicorn auf Port 7681, Shell als `appuser` mit
+`sudo` ohne Passwort (`/etc/sudoers.d/appuser`). `/terminal` (`routes_terminal.py`) leitet
+auf `<host>:TERMINAL_PORT` weiter. Schalter `TERMINAL=aus`, Login per `TERMINAL_PASS`.
+`init: true` in compose, damit beendete Sitzungen nicht als Zombies bleiben.
+
 GUI auf Port 8999 (`docker-compose.yml`), standardmaessig nur an 127.0.0.1 gebunden (`APP_BIND`, `OLLAMA_BIND`). Migrationen im laufenden Container erzeugen
 und zurueckkopieren (DATABASE_URL zeigt auf `db`, nicht `localhost`):
 
@@ -296,6 +307,10 @@ Danach lokal wieder auf die native Architektur zuruecksetzen (gleiches Digest-Mu
 sonst laeuft die Dev-Umgebung unter Emulation (`usb_paket_bauen.sh` macht das selbst).
 
 ## Bekannte offene Punkte
+
+Podman: `image_bauen.sh`/`usb_paket_bauen.sh`/`*.ps1` mit Podman nie gelaufen; getestet ist nur
+`podman compose` mit Podman-Machine auf dem Mac (Build, Start, `vfm check`). Das Terminal
+braucht ein neu gebautes Image (GHCR `3a74292` hat noch kein ttyd).
 
 Cortecs ungeprueft; keine Indizes auf `chunk/entitaet.textextraktion_id`; Fortschritt nur
 in-process; fehlgeschlagene Extraktionsmethoden werden bei jedem Lauf erneut versucht;

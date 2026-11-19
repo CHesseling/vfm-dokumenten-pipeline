@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     rag_top_k: int = 8
     kategorien_pfad: str = "config/kategorien.yaml"
 
+    # Browser-Terminal (ttyd im App-Container, siehe entrypoint.sh). TERMINAL_PORT ist
+    # der Port auf dem Rechner, auf den der Link /terminal weiterleitet.
+    terminal: str = "an"
+    terminal_port: int = 7681
+
     @field_validator("gliner_schwelle")
     @classmethod
     def _schwelle_im_bereich(cls, wert: float) -> float:
@@ -98,6 +103,9 @@ class Settings(BaseSettings):
         if wert == "" and cls.model_fields[info.field_name].default is None:
             return None
         return wert
+
+    def terminal_aktiv(self) -> bool:
+        return self.terminal.strip().lower() not in ("aus", "0", "false", "nein", "off")
 
     def api_key_fuer(self, rolle: str) -> str | None:
         eigener = getattr(self, f"{rolle}_api_key")

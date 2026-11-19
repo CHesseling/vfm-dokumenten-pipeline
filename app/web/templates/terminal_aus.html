@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Terminal – Dokumenten-Pipeline{% endblock %}
+{% block content %}
+<h1>Terminal</h1>
+<div class="hinweis-box">
+  <p>Das Browser-Terminal ist abgeschaltet (<code>TERMINAL=aus</code> in der <code>.env</code>).</p>
+  <p>Zum Einschalten die Zeile entfernen oder auf <code>TERMINAL=an</code> setzen und den
+  Container neu starten: <code>docker compose up -d</code> bzw. <code>podman compose up -d</code>.</p>
+</div>
+{% endblock %}

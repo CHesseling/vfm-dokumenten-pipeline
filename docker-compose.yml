@@ -1,6 +1,7 @@
 services:
   db:
-    image: pgvector/pgvector:pg16
+    # Voll qualifiziert: Podman bricht bei short-name-mode=enforcing ohne TTY sonst ab
+    image: docker.io/pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: vfm
       POSTGRES_PASSWORD: vfm
@@ -29,6 +30,11 @@ services:
     # Container-User ueber APP_UID/APP_GID in der .env anpassbar.
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
     env_file: .env
+    environment:
+      # Port des Browser-Terminals auf dem Rechner (fuer den Link /terminal)
+      TERMINAL_PORT: ${TERMINAL_PORT:-7681}
+    # Init-Prozess raeumt beendete Terminal-Sitzungen (ttyd laeuft neben uvicorn)
+    init: true
     extra_hosts:
       # Zugriff auf Ollama, das direkt auf dem Host laeuft
       - "host.docker.internal:host-gateway"
@@ -37,16 +43,19 @@ services:
         condition: service_healthy
     ports:
       - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8999}:8000"
+      # Browser-Terminal (ttyd); TERMINAL=aus in der .env schaltet es ab
+      - "${TERMINAL_BIND:-127.0.0.1}:${TERMINAL_PORT:-7681}:7681"
     volumes:
       - daten:/data
-      - ./material:/material
+      # :z = SELinux-Label (Fedora/RHEL mit Docker oder Podman); sonst wirkungslos
+      - ./material:/material:z
       # Frage und Kategorien der Klassifikation aenderbar, ohne das Image neu zu bauen
-      - ./config:/app/config:ro
+      - ./config:/app/config:ro,z
 
   # Optional: Ollama im Container statt auf dem Host
-  # (docker compose --profile ollama up -d)
+  # (docker compose --profile ollama up -d bzw. podman compose ...)
   ollama:
-    image: ollama/ollama
+    image: docker.io/ollama/ollama:latest
     profiles: ["ollama"]
     environment:
       # Ollama-Standard ist ein kleines Kontextfenster; laengere Dokumente

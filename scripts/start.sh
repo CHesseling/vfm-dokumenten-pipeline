@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Einrichten und Starten in einem Zug (Mac/Linux), fuer Teilnehmende:
 #   curl -fsSL https://raw.githubusercontent.com/CHesseling/vfm-dokumenten-pipeline/main/scripts/start.sh | bash
-# Voraussetzung: Docker (Docker Desktop oder colima) und Ollama sind installiert und laufen.
+# Voraussetzung: Docker (Docker Desktop oder colima) oder Podman (podman machine bzw.
+# Linux) sowie Ollama sind installiert und laufen.
 # Das Skript laedt das Projekt nach ~/vfm-pipeline, holt fehlende Ollama-Modelle,
 # zieht das fertige App-Image und startet alles. Mehrfach ausfuehren ist ok (Update).
-# Ueberschreibbar: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE, VFM_PORT (Standard 8999, falls belegt).
+# Option --build: App-Image lokal bauen statt ziehen (dauert, braucht Internet):
+#   curl -fsSL .../scripts/start.sh | bash -s -- --build
+# Ueberschreibbar: VFM_ZIEL, VFM_ZIP_URL, VFM_IMAGE, VFM_PORT (Standard 8999, falls belegt),
+# VFM_ENGINE (docker|podman, Standard: was laeuft, Docker zuerst).
 set -euo pipefail
 
 REPO="CHesseling/vfm-dokumenten-pipeline"
@@ -16,10 +20,28 @@ GUI="http://localhost:${PORT}"
 
 fehler() { echo "FEHLER: $*" >&2; exit 1; }
 
+BAUEN=0
+for arg in "$@"; do
+  case "$arg" in
+    --build) BAUEN=1 ;;
+    *) fehler "Unbekanntes Argument: '$arg' (erlaubt: --build)" ;;
+  esac
+done
+
+# Container-Engine: Docker oder Podman, je nachdem was laeuft (VFM_ENGINE erzwingt eine)
+CE=""
+for e in ${VFM_ENGINE:-docker podman}; do
+  if command -v "$e" > /dev/null && "$e" info > /dev/null 2>&1; then CE="$e"; break; fi
+done
+
 echo "==> Pruefe Voraussetzungen"
-command -v docker > /dev/null || fehler "Docker fehlt. Bitte Docker Desktop installieren: https://www.docker.com/products/docker-desktop/"
-docker info > /dev/null 2>&1 || fehler "Docker laeuft nicht. Bitte Docker Desktop (bzw. colima) starten und das Skript erneut ausfuehren."
-docker compose version > /dev/null 2>&1 || fehler "'docker compose' fehlt. Bitte Docker Desktop aktualisieren."
+if [ -z "$CE" ]; then
+  command -v docker > /dev/null || command -v podman > /dev/null \
+    || fehler "Weder Docker noch Podman gefunden. Bitte Docker Desktop installieren: https://www.docker.com/products/docker-desktop/ (oder Podman: https://podman.io)"
+  fehler "Docker/Podman laeuft nicht. Bitte Docker Desktop, colima bzw. 'podman machine start' starten und das Skript erneut ausfuehren."
+fi
+echo "  Container-Engine: $CE"
+"$CE" compose version > /dev/null 2>&1 || fehler "'$CE compose' fehlt. Docker Desktop aktualisieren bzw. fuer Podman docker-compose oder podman-compose installieren."
 command -v ollama > /dev/null || fehler "Ollama fehlt. Bitte installieren: https://ollama.com/download"
 ollama list > /dev/null 2>&1 || fehler "Ollama laeuft nicht. Bitte die Ollama-App starten und das Skript erneut ausfuehren."
 command -v unzip > /dev/null || fehler "'unzip' fehlt."
@@ -49,7 +71,11 @@ env_setzen() {  # Schluessel in .env setzen oder anhaengen
     printf '%s=%s\n' "$1" "$2" >> .env
   fi
 }
-env_setzen APP_IMAGE "$IMAGE"
+if [ "$BAUEN" = 1 ]; then
+  env_setzen APP_IMAGE ""   # leer: compose nimmt das lokal gebaute vfm-pipeline:latest
+else
+  env_setzen APP_IMAGE "$IMAGE"
+fi
 env_setzen APP_PORT "$PORT"
 
 echo "==> Pruefe Ollama-Modelle"
@@ -63,21 +89,29 @@ for modell in $(grep -E '^(CHAT|VISION|EMBED)_MODEL=' profile/ollama.env | cut -
   fi
 done
 
-echo "==> Lade Docker-Images (beim ersten Mal mehrere GB)"
-docker compose pull db app
-echo "==> Starte"
-docker compose up -d --no-build
+if [ "$BAUEN" = 1 ]; then
+  echo "==> Lade Datenbank-Image"
+  "$CE" compose pull db
+  echo "==> Baue App-Image und starte (beim ersten Mal 10-20 Minuten)"
+  "$CE" compose up -d --build
+else
+  echo "==> Lade Container-Images (beim ersten Mal mehrere GB)"
+  "$CE" compose pull db app
+  echo "==> Starte"
+  "$CE" compose up -d --no-build
+fi
 
 echo "==> Warte auf die Oberflaeche"
 for _ in $(seq 1 90); do
   if curl -fsS "$GUI/gesundheit" > /dev/null 2>&1; then
     echo
     echo "Fertig: $GUI"
-    echo "Terminal-Befehle: cd \"$ZIEL\" && docker compose exec app vfm check"
+    echo "Terminal-Befehle: cd \"$ZIEL\" && $CE compose exec app vfm check"
+    echo "Terminal im Browser: http://localhost:7681 (Link \"Terminal\" in der Oberflaeche)"
     echo "Hinweis: In der Ollama-App die Kontextlaenge auf mindestens 16k stellen, sonst werden lange Dokumente abgeschnitten."
     if command -v open > /dev/null; then open "$GUI"; elif command -v xdg-open > /dev/null; then xdg-open "$GUI" > /dev/null 2>&1 || true; fi
     exit 0
   fi
   sleep 2
 done
-fehler "Die Oberflaeche antwortet nicht. Logs ansehen: cd \"$ZIEL\" && docker compose logs app"
+fehler "Die Oberflaeche antwortet nicht. Logs ansehen: cd \"$ZIEL\" && $CE compose logs app"
