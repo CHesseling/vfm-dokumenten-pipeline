@@ -22,9 +22,18 @@ def _pfad() -> str:
     return os.environ.get("VFM_MODELL_SPERRE") or os.path.join(tempfile.gettempdir(), "vfm-modelle.lock")
 
 
+def _oeffnen(pfad: str):
+    """flock braucht nur einen Dateideskriptor, Lesen reicht. Hat `sudo vfm ...` die
+    Datei als root angelegt (0644), scheitert "a" fuer appuser, "r" klappt."""
+    try:
+        return open(pfad, "a")
+    except PermissionError:
+        return open(pfad, "r")
+
+
 @contextmanager
 def modell_sperre(wer: str) -> Iterator[None]:
-    with open(_pfad(), "a") as datei:
+    with _oeffnen(_pfad()) as datei:
         start = time.monotonic()
         fcntl.flock(datei, fcntl.LOCK_EX)
         gewartet = time.monotonic() - start

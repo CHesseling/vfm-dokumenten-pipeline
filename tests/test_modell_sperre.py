@@ -49,6 +49,14 @@ def test_anderer_prozess_wartet(eigene_sperrdatei):
     assert frei.returncode == 0
 
 
+def test_fremde_sperrdatei_ohne_schreibrecht(eigene_sperrdatei):
+    # z. B. von `sudo vfm ...` im Browser-Terminal als root angelegt (0644)
+    eigene_sperrdatei.touch()
+    eigene_sperrdatei.chmod(0o444)
+    with modell_sperre("test"):
+        pass
+
+
 def test_sperre_wird_bei_fehler_freigegeben():
     with pytest.raises(RuntimeError):
         with modell_sperre("test"):
